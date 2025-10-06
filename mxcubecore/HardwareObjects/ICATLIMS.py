@@ -67,8 +67,7 @@ class ICATLIMS(AbstractLims):
     ) -> LimsSessionManager:
         msg = f"authenticate {user_name}"
         logger.debug(msg)
-
-        self.icat_session: ICATSession = self.icatClient.do_log_in(password)
+        self.icat_session: ICATSession = self.icatClient.do_log_in(username=user_name, password=password)
 
         if self.icatClient is None or self.icatClient is None:
             msg = "Error initializing icatClient: "
