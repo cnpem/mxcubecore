@@ -16,7 +16,6 @@ class EPICSActuator(AbstractActuator):
         super().__init__(name)
         self.setpoint = None
         self._nominal_limits = (-1e4, 1e4)
-        self.default_timeout = 180
         if not self.unit:
             self.unit = 10**-3
 
@@ -53,7 +52,7 @@ class EPICSActuator(AbstractActuator):
 
     def set_value(self, value, timeout: float = 0):
         if not timeout:
-            timeout = self.default_timeout
+            timeout = None
         try:
             super().set_value(value, timeout)
         except ValueError:
