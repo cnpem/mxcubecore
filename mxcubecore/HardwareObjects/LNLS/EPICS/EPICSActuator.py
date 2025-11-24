@@ -12,7 +12,7 @@ class EPICSActuator(AbstractActuator):
     ACTUATOR_RBV = "rbv"  # readback
 
     def __init__(self, name):
-        super(EPICSActuator, self).__init__(name)
+        super().__init__(name)
         self.setpoint = None
         self._nominal_limits = (-1e4, 1e4)
         self.default_timeout = 180
