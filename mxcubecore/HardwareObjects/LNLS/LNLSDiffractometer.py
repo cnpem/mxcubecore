@@ -60,32 +60,32 @@ class LNLSDiffractometer(GenericDiffractometer):
 
         GenericDiffractometer.init(self)
         # Bzoom: 1.86 um/pixel (or 0.00186 mm/pixel) at minimum zoom
-        self.x_calib = 0.00186
-        self.y_calib = 0.00186
-        self.last_centred_position = [318, 238]
+        self.x_calib = self.get_property("x_calib", "")
+        self.y_calib = self.get_property("y_calib", "")
+        self.last_centred_position = self.get_property("last_centred_position", "")
 
         self.pixels_per_mm_x = 1.0 / self.x_calib
         self.pixels_per_mm_y = 1.0 / self.y_calib
-        self.beam_position = [318, 238]
+        self.beam_position = self.get_property("beam_position", "")
 
         self.current_phase = GenericDiffractometer.PHASE_CENTRING
 
         self.cancel_centring_methods = {}
         self.current_motor_positions = {
-            "phiy": 1.0,
-            "sampx": 0.0,
-            "sampy": -1.0,
-            "zoom": 8.53,
-            "focus": -0.42,
-            "phiz": 1.1,
-            "phi": 311.1,
-            "kappa": 11,
-            "kappa_phi": 22.0,
+            "phiy": self.get_property("current_motor_positions_phiy", ""),
+            "sampx": self.get_property("current_motor_positions_sampx", ""),
+            "sampy": self.get_property("current_motor_positions_sampy", ""),
+            "zoom": self.get_property("current_motor_positions_zoom", ""),
+            "focus": self.get_property("current_motor_positions_focus", ""),
+            "phiz": self.get_property("current_motor_positions_phiz", ""),
+            "phi": self.get_property("current_motor_positions_phi", ""),
+            "kappa": self.get_property("current_motor_positions_kappa", ""),
+            "kappa_phi": self.get_property("current_motor_positions_kappa_phi", ""),
         }
 
         self.current_state_dict = {}
         self.centring_status = {"valid": False}
-        self.centring_time = 0
+        self.centring_time = self.get_property("centring_time", "")
 
         self.mount_mode = self.get_property("sample_mount_mode")
         if self.mount_mode is None:
