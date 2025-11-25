@@ -1,4 +1,3 @@
-import threading
 import time
 from typing import Optional
 
@@ -30,16 +29,21 @@ class EPICSActuator(AbstractActuator):
         return not np.isclose(readback, setpoint, rtol=self.unit, atol=self.unit)
 
     def wait_ready(self, timeout: Optional[float] = None):
-        self._wait_task = threading.Event()
+        self._ready_event.clear()
+        is_set = self._ready_event.is_set()
         try:
             with gevent.Timeout(timeout, exception=TimeoutError):
-                while (
-                    self.hasnt_arrived(self.setpoint) and not self._wait_task.is_set()
-                ):
+                while not is_set:
+                    is_set = self._ready_event.is_set()
+                    if not self.hasnt_arrived(self.setpoint):
+                        self._ready_event.set()
                     time.sleep(0.15)
         except TimeoutError:
-            pvname = self.get_channel_object("rbv").command.pv_name
-            self.print_log(level="error", msg=f"{pvname} motion has timed out.")
+            pvname = self.get_channel_object("").command.pv_name
+            self.print_log(
+                level="error",
+                msg=f"{pvname} motion has timed out.",
+            )
         self.update_state(self.STATES.READY)
 
     def get_value(self):
