@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import itertools
 import logging
 import sys
@@ -56,10 +54,10 @@ def utf_decode(res_d):
     for key, value in res_d.items():
         if isinstance(value, dict):
             utf_decode(value)
-        try:
+        try:  # noqa: SIM105
             res_d[key] = value.decode("utf8", "ignore")
-        except Exception:
-            logging.getLogger("HWR").exception("")
+        except Exception:  # noqa: S110
+            pass
 
     return res_d
 
@@ -184,15 +182,15 @@ class ISPyBDataAdapter:
             code=proposal_code,
             number=proposal_number,
             proposal_name=proposal_name,
-            session_id=session.get("sessionId"),
-            proposal_id=session.get("proposalId"),
+            session_id=str(session.get("sessionId")),
+            proposal_id=str(session.get("proposalId")),
             beamline_name=session.get("beamlineName"),
             comments=session.get("comments"),
             end_date=datetime.strftime(
                 session.get("endDate"), "%Y%m%d"
             ),  # session.get("endDate"),
-            nb_shifts=session.get("nbShifts"),
-            scheduled=session.get("scheduled"),
+            nb_shifts=str(session.get("nbShifts")),
+            scheduled=str(session.get("scheduled")),
             start_date=datetime.strftime(
                 session.get("startDate"), "%Y%m%d"
             ),  # session.get("startDate"),
@@ -211,7 +209,7 @@ class ISPyBDataAdapter:
         return Proposal(
             code=proposal.get("code").lower(),
             number=proposal.get("number").lower(),
-            proposal_id=proposal.get("proposalId"),
+            proposal_id=str(proposal.get("proposalId")),
             title=proposal.get("title"),
             type=proposal.get("type"),
         )

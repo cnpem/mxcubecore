@@ -910,8 +910,8 @@ class ICATLIMS(AbstractLims):
             "MX_beamShape": shape.value,
             "MX_beamSizeAtSampleX": bsx,
             "MX_beamSizeAtSampleY": bsy,
-            "MX_xBeam": bsx,
-            "MX_yBeam": bsy,
+            "MX_xBeam": datacollection_dict.get("xBeam", "N/A"),
+            "MX_yBeam": datacollection_dict.get("yBeam", "N/A"),
             "MX_flux": datacollection_dict.get("flux"),
             "MX_fluxEnd": flux_end,
             "MX_transmission": transmission,
@@ -936,7 +936,7 @@ class ICATLIMS(AbstractLims):
             _session = HWR.beamline.session
             proposal = f"{_session.proposal_code}{_session.proposal_number}"
 
-            directory = Path(energyscan_dict["scanFileFullPath"]).parent
+            directory = Path(energyscan_dict["scanFileFullPath"]).parent.parent
 
             start_time = energyscan_dict.get("startTime", "")
             end_time = energyscan_dict.get("endTime", "")
