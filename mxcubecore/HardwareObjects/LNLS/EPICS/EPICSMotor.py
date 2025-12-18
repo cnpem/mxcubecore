@@ -11,6 +11,7 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
     MOTOR_DMOV = "dmov"
     MOTOR_STOP = "stop"
     MOTOR_VELO = "velo"
+    MOTOR_ACCL = "accl"
     MOTOR_HLM = "hlm"
     MOTOR_LLM = "llm"
     MOTOR_EGU = "egu"
@@ -26,6 +27,7 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
         self.add_channel({"type": "epics", "name": self.MOTOR_DMOV}, pvname + ".DMOV")
         self.add_channel({"type": "epics", "name": self.MOTOR_STOP}, pvname + ".STOP")
         self.add_channel({"type": "epics", "name": self.MOTOR_VELO}, pvname + ".VELO")
+        self.add_channel({"type": "epics", "name": self.MOTOR_ACCL}, pvname + ".ACCL")
         self.add_channel({"type": "epics", "name": self.MOTOR_HLM}, pvname + ".HLM")
         self.add_channel({"type": "epics", "name": self.MOTOR_LLM}, pvname + ".LLM")
         self.add_channel({"type": "epics", "name": self.MOTOR_EGU}, pvname + ".EGU")
@@ -42,8 +44,9 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
     def wait_ready(self, timeout):
         self._wait_task = threading.Event()
         timeout = abs(self.get_value() - self.setpoint) / self.get_velocity()
+        timeout += 2 * self.get_acceleration()
         # Timeout tolerance
-        timeout += 2.5
+        timeout += 10
         try:
             with gevent.Timeout(timeout, exception=TimeoutError):
                 while (
@@ -84,6 +87,10 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
     def set_velocity(self, value):
         self.set_channel_value(self.MOTOR_VELO, value)
         self._velocity = value
+        
+    def get_acceleration(self):
+        self._acceleration = self.get_channel_value(self.MOTOR_ACCL)
+        return self._acceleration
 
     def done_movement(self):
         dmov = self.get_channel_value(self.MOTOR_DMOV)
