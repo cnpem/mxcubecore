@@ -1,11 +1,11 @@
 import threading
-import logging
 import time
 
 import gevent
 import numpy as np
 
 from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
+
 
 class EPICSActuator(AbstractActuator):
     ACTUATOR_VAL = "val"  # setpoint
@@ -16,7 +16,6 @@ class EPICSActuator(AbstractActuator):
         self.setpoint = None
         self._nominal_limits = (-1e4, 1e4)
         self.default_timeout = 180
-        self.log = logging.getLogger("HWR")
         if not self.unit:
             self.unit = 10**-3
 
@@ -28,19 +27,19 @@ class EPICSActuator(AbstractActuator):
         readback = self.get_value()
         if not readback:
             return False
-        return not np.isclose(
-            readback, setpoint, rtol=self.unit, atol=self.unit
-        )
+        return not np.isclose(readback, setpoint, rtol=self.unit, atol=self.unit)
 
     def wait_ready(self, timeout):
         self._wait_task = threading.Event()
         try:
             with gevent.Timeout(timeout, exception=TimeoutError):
-                while self.hasnt_arrived(self.setpoint) and not self._wait_task.is_set():
+                while (
+                    self.hasnt_arrived(self.setpoint) and not self._wait_task.is_set()
+                ):
                     time.sleep(0.15)
         except TimeoutError:
             pvname = self.get_channel_object("rbv").command.pv_name
-            self.log.error(f"{pvname} motion has timed out.")
+            self.print_log(level="error", msg=f"{pvname} motion has timed out.")
         self.update_state(self.STATES.READY)
 
     def get_value(self):
@@ -54,7 +53,16 @@ class EPICSActuator(AbstractActuator):
     def set_value(self, value, timeout: float = 0):
         if not timeout:
             timeout = self.default_timeout
-        super().set_value(value, timeout)
+        try:
+            super().set_value(value, timeout)
+        except ValueError:
+            pvname = self.get_channel_object("rbv").command.pv_name
+            msg = f"{pvname} value {value} is outside motor limits"
+            msg += f": {self._nominal_limits}"
+            self.print_log(
+                level="error",
+                msg=msg,
+            )
 
     def abort(self):
         if self._wait_task is not None:
