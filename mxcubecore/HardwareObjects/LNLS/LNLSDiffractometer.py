@@ -119,40 +119,54 @@ class LNLSDiffractometer(GenericDiffractometer):
         """
         Descript. :
         """
-        print("Iniciando centragem manual...")
+        self.print_log(level="debug", msg="Iniciando centragem manual...")
         for click in range(3):
-            print(f"Aguardando clique do usuário ({click + 1}/3)...")
+            self.print_log(
+                level="debug", msg=f"Aguardando clique do usuário ({click + 1}/3)..."
+            )
             self.user_clicked_event = AsyncResult()
             x, y = self.user_clicked_event.get()
-            print(f"Usuário clicou nas coordenadas: x={x}, y={y}")
+            self.print_log(
+                level="debug", msg=f"Usuário clicou nas coordenadas: x={x}, y={y}"
+            )
 
             # go to beam
-            print("Movendo para o feixe com as coordenadas clicadas.")
+            self.print_log(
+                level="debug", msg="Movendo para o feixe com as coordenadas clicadas."
+            )
             res = self.move_to_beam(x, y)  # wait before continue
-            print(f"Resultado do movimento para o feixe: {res}")
+            self.print_log(
+                level="debug", msg=f"Resultado do movimento para o feixe: {res}"
+            )
 
             if click < 2:
-                print(
-                    f"Executando rotação relativa do motor phi em 90 graus (click={click})..."
+                self.print_log(
+                    level="debug",
+                    msg=f"Executando rotação relativa do motor phi em 90 graus (click={click})...",
                 )
                 self.motor_hwobj_dict["phi"].set_value_relative(90)
 
-        print(f"Salvando última posição centrada: x={x}, y={y}")
+        self.print_log(
+            level="debug", msg=f"Salvando última posição centrada: x={x}, y={y}"
+        )
         self.last_centred_position[0] = x
         self.last_centred_position[1] = y
 
-        print("Centragem manual finalizada.")
+        self.print_log(level="debug", msg="Centragem manual finalizada.")
         return {}
 
     def automatic_centring(self):
         """Automatic centring procedure"""
-        print("Iniciando centragem automática...")
+        self.print_log(level="debug", msg="Iniciando centragem automática...")
 
         centred_pos_dir = self._get_random_centring_position()
-        print(f"Posição centrada gerada automaticamente: {centred_pos_dir}")
+        self.print_log(
+            level="debug",
+            msg=f"Posição centrada gerada automaticamente: {centred_pos_dir}",
+        )
 
         self.emit("newAutomaticCentringPoint", centred_pos_dir)
-        print("Sinal 'newAutomaticCentringPoint' emitido.")
+        self.print_log(level="debug", msg="Sinal 'newAutomaticCentringPoint' emitido.")
 
         return centred_pos_dir
 
@@ -248,20 +262,25 @@ class LNLSDiffractometer(GenericDiffractometer):
         self.beam_position[0], self.beam_position[1] = (
             HWR.beamline.beam.get_beam_position_on_screen()
         )
-        print(f"Posição atual do feixe na tela: {self.beam_position}")
+        self.print_log(
+            level="debug", msg=f"Posição atual do feixe na tela: {self.beam_position}"
+        )
 
         # Armazena clique do usuário
         self.last_centred_position[0] = x
         self.last_centred_position[1] = y
-        print(f"Última posição clicada pelo usuário: x={x}, y={y}")
+        self.print_log(
+            level="debug", msg=f"Última posição clicada pelo usuário: x={x}, y={y}"
+        )
 
         # Obtém posições atuais dos motores
         omega_pos = self.motor_hwobj_dict["phi"].get_value()
         goniox_pos = self.motor_hwobj_dict["phiz"].get_value()
         sampx_pos = self.motor_hwobj_dict["sampx"].get_value()
         sampy_pos = self.motor_hwobj_dict["sampy"].get_value()
-        print(
-            f"Posições atuais dos motores: omega={omega_pos}, phiz={goniox_pos}, sampx={sampx_pos}, sampy={sampy_pos}"
+        self.print_log(
+            level="debug",
+            msg=f"Posições atuais dos motores: omega={omega_pos}, phiz={goniox_pos}, sampx={sampx_pos}, sampy={sampy_pos}",
         )
 
         # Cálculo da movimentação de goniox
@@ -270,25 +289,36 @@ class LNLSDiffractometer(GenericDiffractometer):
         drx_goniox = abs(-x - y + 1152) / math.sqrt(2)
         dir_goniox = 1 if y <= (-x + 1152) else -1
         move_goniox = dir_goniox * drx_goniox / self.pixels_per_mm_x + goniox_pos
-        print(f"Movimento calculado para phiz (goniox): {move_goniox:.4f}")
+        self.print_log(
+            level="debug",
+            msg=f"Movimento calculado para phiz (goniox): {move_goniox:.4f}",
+        )
 
         # Cálculo da movimentação em Y
         dry_samp = abs(x - y - 128) / math.sqrt(2)
         dir_samp = 1 if y >= x - 128 else -1
         move_samp = dir_samp * dry_samp
-        print(
-            f"Movimento intermediário para centragem vertical (samp): {move_samp:.4f}"
+        self.print_log(
+            level="debug",
+            msg=f"Movimento intermediário para centragem vertical (samp): {move_samp:.4f}",
         )
 
         move_sampy = move_samp / self.pixels_per_mm_y
-        print(f"Conversão para mm em Y: move_sampy = {move_sampy:.4f}")
+        self.print_log(
+            level="debug", msg=f"Conversão para mm em Y: move_sampy = {move_sampy:.4f}"
+        )
 
         move_sampy += sampy_pos
-        print(f"Posição absoluta destino para sampy: {move_sampy:.4f}")
+        self.print_log(
+            level="debug", msg=f"Posição absoluta destino para sampy: {move_sampy:.4f}"
+        )
 
         # Criação do dicionário de destino
         centred_pos_dir = {"phiz": move_goniox, "sampy": move_sampy}
-        print(f"Posições alvo calculadas para centragem: {centred_pos_dir}")
+        self.print_log(
+            level="debug",
+            msg=f"Posições alvo calculadas para centragem: {centred_pos_dir}",
+        )
 
         return centred_pos_dir
 
@@ -298,11 +328,14 @@ class LNLSDiffractometer(GenericDiffractometer):
                     positions.
         """
         logging.getLogger("HWR").info("Moving to beam...")
-        print(f"Initializing beam centering with beam at x={x}, y={y}...")
+        self.print_log(
+            level="debug",
+            msg=f"Initializing beam centering with beam at x={x}, y={y}...",
+        )
 
         centred_pos_dir = self.calculate_move_to_beam_pos(x, y)
 
-        print("Moving to beam...")
+        self.print_log(level="debug", msg="Moving to beam...")
         self.move_to_motors_positions(centred_pos_dir, wait=True)
 
         logging.getLogger("HWR").info("Move to beam has finished...")
