@@ -82,12 +82,12 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
         return self._velocity
 
     def get_precision(self):
-        self._tolerance = 10**(-self.get_channel_value(self.MOTOR_PREC))
+        self._tolerance = 10 ** (-self.get_channel_value(self.MOTOR_PREC))
 
     def set_velocity(self, value):
         self.set_channel_value(self.MOTOR_VELO, value)
         self._velocity = value
-        
+
     def get_acceleration(self):
         self._acceleration = self.get_channel_value(self.MOTOR_ACCL)
         return self._acceleration
