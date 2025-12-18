@@ -1,4 +1,5 @@
 import threading
+import logging
 import time
 
 import gevent
@@ -6,45 +7,41 @@ import numpy as np
 
 from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
 
-
 class EPICSActuator(AbstractActuator):
     ACTUATOR_VAL = "val"  # setpoint
     ACTUATOR_RBV = "rbv"  # readback
 
     def __init__(self, name):
         super(EPICSActuator, self).__init__(name)
-        self._wait_task = None
         self.setpoint = None
         self._nominal_limits = (-1e4, 1e4)
         self.default_timeout = 180
+        self.log = logging.getLogger("HWR")
+        if not self.unit:
+            self.unit = 10**-3
 
     def init(self):
         self.update_state(self.STATES.READY)
         self.connect(self.get_channel_object("rbv"), "update", self.update_value)
-        if not self.unit:
-            self.unit = 10**-3
 
     def hasnt_arrived(self, setpoint):
+        readback = self.get_value()
+        if not readback:
+            return False
         return not np.isclose(
-            self.get_value(), setpoint, rtol=self.unit, atol=self.unit
+            readback, setpoint, rtol=self.unit, atol=self.unit
         )
-
-    def _wait_thread(self, setpoint, timeout):
-        try:
-            with gevent.Timeout(timeout, exception=TimeoutError):
-                while self.hasnt_arrived(setpoint) and not self._wait_task.is_set():
-                    time.sleep(0.15)
-        except TimeoutError:
-            pvname = self.get_channel_object("rbv").command.pv_name
-            self.log(f"{pvname} motion has timed out.")
-        self.update_state(self.STATES.READY)
 
     def wait_ready(self, timeout):
         self._wait_task = threading.Event()
-        thread = threading.Thread(
-            target=self._wait_thread, args=(self.setpoint, timeout)
-        )
-        thread.start()
+        try:
+            with gevent.Timeout(timeout, exception=TimeoutError):
+                while self.hasnt_arrived(self.setpoint) and not self._wait_task.is_set():
+                    time.sleep(0.15)
+        except TimeoutError:
+            pvname = self.get_channel_object("rbv").command.pv_name
+            self.log.error(f"{pvname} motion has timed out.")
+        self.update_state(self.STATES.READY)
 
     def get_value(self):
         return self.get_channel_value(self.ACTUATOR_RBV)
