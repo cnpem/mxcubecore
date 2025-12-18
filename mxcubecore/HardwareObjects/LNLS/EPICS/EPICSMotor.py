@@ -1,5 +1,5 @@
-import threading
 import time
+from typing import Optional
 
 import gevent
 
@@ -41,8 +41,8 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
         self.get_precision()
         super().init()
 
-    def wait_ready(self, timeout):
-        self._wait_task = threading.Event()
+    def wait_ready(self, timeout: Optional[float] = None):
+        self._ready_event.clear()
         timeout = abs(self.get_value() - self.setpoint) / self.get_velocity()
         timeout += 2 * self.get_acceleration()
         # Timeout tolerance

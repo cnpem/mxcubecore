@@ -1,5 +1,6 @@
 import threading
 import time
+from typing import Optional
 
 import gevent
 import numpy as np
@@ -29,7 +30,7 @@ class EPICSActuator(AbstractActuator):
             return False
         return not np.isclose(readback, setpoint, rtol=self.unit, atol=self.unit)
 
-    def wait_ready(self, timeout):
+    def wait_ready(self, timeout: Optional[float] = None):
         self._wait_task = threading.Event()
         try:
             with gevent.Timeout(timeout, exception=TimeoutError):
