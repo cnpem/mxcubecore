@@ -62,7 +62,7 @@ class EPICSActuator(AbstractActuator):
             super().set_value(value, timeout)
         except ValueError:
             pvname = self.get_channel_object("rbv").command.pv_name
-            msg = f"{pvname} value {value} is outside motor limits"
+            msg = f"{pvname} value {value} is outside of actuator limits"
             msg += f": {self._nominal_limits}"
             self.print_log(
                 level="error",
