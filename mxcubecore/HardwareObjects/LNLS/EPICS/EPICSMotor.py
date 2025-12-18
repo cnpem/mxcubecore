@@ -49,9 +49,11 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
         timeout += 10
         try:
             with gevent.Timeout(timeout, exception=TimeoutError):
-                while (
-                    not self.done_movement() or self.hasnt_arrived(self.setpoint)
-                ) and not self._wait_task.is_set():
+                while True:
+                    if self._ready_event.is_set():
+                        break
+                    if self.done_movement() and not self.hasnt_arrived(self.setpoint):
+                        break
                     time.sleep(0.15)
         except TimeoutError:
             pvname = self.get_channel_object("").command.pv_name
