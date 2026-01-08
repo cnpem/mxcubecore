@@ -273,9 +273,11 @@ class LNLSDiffractometer(GenericDiffractometer):
             level="debug", msg=f"Última posição clicada pelo usuário: x={x}, y={y}"
         )
 
+        zoom = self.getObjectByRole("zoom")
+        calibration_x = zoom.getProperty("mm_per_pixel_x")
+        calibration_y = zoom.getProperty("mm_per_pixel_y")
+        print(calibration_x, calibration_y)
         # Obtém posições atuais dos motores
-        omega_pos = self.motor_hwobj_dict["phi"].get_value()
-        goniox_pos = self.motor_hwobj_dict["phiz"].get_value()
         sampx_pos = self.motor_hwobj_dict["sampx"].get_value()
         sampy_pos = self.motor_hwobj_dict["sampy"].get_value()
         self.print_log(
