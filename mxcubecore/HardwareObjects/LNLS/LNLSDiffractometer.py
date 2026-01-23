@@ -164,3 +164,6 @@ class LNLSDiffractometer(GenericDiffractometer):
         self._bluesky_api.execute_plan(plan_params)
 
         self.log.info("Move to beam has finished...")
+
+    def motor_positions_to_screen(self, motor_positions):
+        return self.beam_position
