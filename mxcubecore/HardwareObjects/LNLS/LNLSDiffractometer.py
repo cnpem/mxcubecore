@@ -157,8 +157,8 @@ class LNLSDiffractometer(GenericDiffractometer):
             "name":"move_to_beam", 
             "item_type": "plan",
             "kwargs": {
-                "x_px": x,
-                "y_px": y
+                "x_px": x - self.beam_position[0],
+                "y_px": y - self.beam_position[1]
             }
         }
         self._bluesky_api.execute_plan(plan_params)
