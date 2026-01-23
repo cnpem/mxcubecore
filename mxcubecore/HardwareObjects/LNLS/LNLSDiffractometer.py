@@ -17,14 +17,12 @@
 #   You should have received a copy of the GNU Lesser General Public License
 #  along with MXCuBE. If not, see <http://www.gnu.org/licenses/>.
 
-import logging
-import random
 import time
 
 from gevent.event import AsyncResult
 
-from mxcubecore import HardwareRepository as HWR
-from mxcubecore.HardwareObjects.GenericDiffractometer import GenericDiffractometer
+from mxcubecore.HardwareObjects.GenericDiffractometer import (GenericDiffractometer)
+from mxcubecore.HardwareObjects.LNLS.SOPHYS.bluesky import BlueskyAPIInterface
 
 
 class LNLSDiffractometer(GenericDiffractometer):
@@ -37,7 +35,7 @@ class LNLSDiffractometer(GenericDiffractometer):
         Descript. :
         """
         GenericDiffractometer.__init__(self, name)
-
+        self._bluesky_api = BlueskyAPIInterface()
         # child object slots
         self.backlight = None
         self.backlightswitch = None
@@ -210,16 +208,16 @@ class LNLSDiffractometer(GenericDiffractometer):
         Descript. : function to create a centring point based on all motors
                     positions.
         """
-        logging.getLogger("HWR").info("Moving to beam...")
-        self.print_log(
-            level="debug",
-            msg=f"Initializing beam centering with beam at x={x}, y={y}...",
-        )
+        self.log.info("Moving to beam...")
 
-        centred_pos_dir = self.calculate_move_to_beam_pos(x, y)
+        plan_params = {
+            "name":"move_to_beam", 
+            "item_type": "plan",
+            "kwargs": {
+                "x_px": x,
+                "y_px": y
+            }
+        }
+        self._bluesky_api.execute_plan(plan_params)
 
-        self.print_log(level="debug", msg="Moving to beam...")
-        self.move_to_motors_positions(centred_pos_dir, wait=True)
-
-        logging.getLogger("HWR").info("Move to beam has finished...")
-        return centred_pos_dir
+        self.log.info("Move to beam has finished...")
