@@ -20,19 +20,18 @@
 import time
 
 from gevent.event import AsyncResult
-
+from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.GenericDiffractometer import (GenericDiffractometer)
-from mxcubecore.HardwareObjects.LNLS.SOPHYS.bluesky import BlueskyAPIInterface
 
 
 class LNLSDiffractometer(GenericDiffractometer):
 
     def __init__(self, name):
         GenericDiffractometer.__init__(self, name)
-        self._bluesky_api = BlueskyAPIInterface()
 
     def init(self):
         GenericDiffractometer.init(self)
+        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
         self.pixels_per_mm_x = 10**-4
         self.pixels_per_mm_y = 10**-4
         self.beam_position = [318, 238]
@@ -117,42 +116,34 @@ class LNLSDiffractometer(GenericDiffractometer):
             self.waiting_for_click = True
             x, y = self.user_clicked_event.get()
             self.log.info(f"{x}, {y}")
-            plan_params = {
-                "name":"manual_alignment", 
-                "item_type": "plan",
-                "kwargs": {
+            self._bluesky_api.execute_plan(
+                plan_name = "manual_alignment",
+                kwargs = {
                     "x_px": x,
                     "y_px": y,
                     "step": step
                 }
-            }
-            self._bluesky_api.execute_plan(plan_params)
+            )
         self.log.info("Manual sample alignment has finished...")
         return {}
 
     def automatic_centring(self):
         self.log.info("Initializing automatic sample alignment...")
-
-        plan_params = {
-            "name":"automatic_alignment", 
-            "item_type": "plan"
-        }
-        self._bluesky_api.execute_plan(plan_params)
+        self._bluesky_api.execute_plan(
+            plan_name = "automatic_alignment"
+        )
         self.log.info("Automatic sample alignment has finished...")
         
     def move_to_beam(self, x, y, omega=None):
         self.log.info("Moving to beam...")
 
-        plan_params = {
-            "name":"move_to_beam", 
-            "item_type": "plan",
-            "kwargs": {
+        self._bluesky_api.execute_plan(
+            plan_name = "move_to_beam",
+            kwargs = {
                 "x_px": x - self.beam_position[0],
                 "y_px": y - self.beam_position[1]
             }
-        }
-        self._bluesky_api.execute_plan(plan_params)
-
+        )
         self.log.info("Move to beam has finished...")
 
     def motor_positions_to_screen(self, motor_positions):
