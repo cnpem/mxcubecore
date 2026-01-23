@@ -26,28 +26,10 @@ from mxcubecore.HardwareObjects.LNLS.SOPHYS.bluesky import BlueskyAPIInterface
 
 
 class LNLSDiffractometer(GenericDiffractometer):
-    """
-    Descript. :
-    """
 
     def __init__(self, name):
-        """
-        Descript. :
-        """
         GenericDiffractometer.__init__(self, name)
         self._bluesky_api = BlueskyAPIInterface()
-        # child object slots
-        self.backlight = None
-        self.backlightswitch = None
-        self.beamstop_distance = None
-        self.focus = None
-        self.frontlight = None
-        self.frontlightswitch = None
-        self.phi = None
-        self.phiy = None
-        self.phiz = None
-        self.sampx = None
-        self.sampy = None
 
     def init(self):
         """
@@ -57,39 +39,26 @@ class LNLSDiffractometer(GenericDiffractometer):
         # self.image_height = 100
 
         GenericDiffractometer.init(self)
-        # Bzoom: 1.86 um/pixel (or 0.00186 mm/pixel) at minimum zoom
-        self.x_calib = self.get_property("x_calib", "")
-        self.y_calib = self.get_property("y_calib", "")
-        self.last_centred_position = self.get_property("last_centred_position", "")
-
-        self.pixels_per_mm_x = 1.0 / self.x_calib
-        self.pixels_per_mm_y = 1.0 / self.y_calib
-        self.beam_position = self.get_property("beam_position", "")
-
-        self.current_phase = GenericDiffractometer.PHASE_CENTRING
-
-        self.cancel_centring_methods = {}
+        self.pixels_per_mm_x = 10**-4
+        self.pixels_per_mm_y = 10**-4
+        self.beam_position = [318, 238]
+        self.last_centred_position = self.beam_position
         self.current_motor_positions = {
-            "phiy": self.get_property("current_motor_positions_phiy", ""),
-            "sampx": self.get_property("current_motor_positions_sampx", ""),
-            "sampy": self.get_property("current_motor_positions_sampy", ""),
-            "zoom": self.get_property("current_motor_positions_zoom", ""),
-            "focus": self.get_property("current_motor_positions_focus", ""),
-            "phiz": self.get_property("current_motor_positions_phiz", ""),
-            "phi": self.get_property("current_motor_positions_phi", ""),
-            "kappa": self.get_property("current_motor_positions_kappa", ""),
-            "kappa_phi": self.get_property("current_motor_positions_kappa_phi", ""),
+            "phiy": 0,
+            "sampx": 0,
+            "sampy": 0,
+            "zoom": 0,
+            "focus": 0,
+            "phiz": 0,
+            "phi": 0,
+            "kappa": 0,
+            "kappa_phi": 0,
         }
 
-        self.current_state_dict = {}
-        self.centring_status = {"valid": False}
-        self.centring_time = self.get_property("centring_time", "")
-
+        self.centring_time = 0
         self.mount_mode = self.get_property("sample_mount_mode")
         if self.mount_mode is None:
             self.mount_mode = "manual"
-
-        self.equipment_ready()
 
         self.connect(self.motor_hwobj_dict["phi"], "valueChanged", self.phi_motor_moved)
         self.connect(
@@ -114,21 +83,9 @@ class LNLSDiffractometer(GenericDiffractometer):
         )
 
     def is_ready(self) -> bool:
-        """
-        Descript. :
-        """
         return True
 
-    def motor_positions_to_screen(self, centred_positions_dict):
-        """
-        Descript. :
-        """
-        return self.last_centred_position[0], self.last_centred_position[1]
-
     def phi_motor_moved(self, pos):
-        """
-        Descript. :
-        """
         self.current_motor_positions["phi"] = pos
         self.emit("phiMotorMoved", pos)
 
@@ -145,9 +102,6 @@ class LNLSDiffractometer(GenericDiffractometer):
         self.current_motor_positions["sampy"] = pos
 
     def kappa_motor_moved(self, pos):
-        """
-        Descript. :
-        """
         self.current_motor_positions["kappa"] = pos
         if time.time() - self.centring_time > 1.0:
             self.invalidate_centring()
@@ -155,9 +109,6 @@ class LNLSDiffractometer(GenericDiffractometer):
         self.emit("kappaMotorMoved", pos)
 
     def kappa_phi_motor_moved(self, pos):
-        """
-        Descript. :
-        """
         self.current_motor_positions["kappa_phi"] = pos
         if time.time() - self.centring_time > 1.0:
             self.invalidate_centring()
@@ -165,35 +116,28 @@ class LNLSDiffractometer(GenericDiffractometer):
         self.emit("kappaPhiMotorMoved", pos)
 
     def manual_centring(self):
-        """
-        Descript. :
-        """
-        print("Iniciando centragem manual...")
-        for click in range(3):
-            print(f"Aguardando clique do usuário ({click+1}/3)...")
+        self.log.info("Initializing manual sample alignment...")
+        for step in range(3):
+            self.log.info(f"Step {step+1} of 3...")
             self.user_clicked_event = AsyncResult()
+            self.waiting_for_click = True
             x, y = self.user_clicked_event.get()
-            print(f"Usuário clicou nas coordenadas: x={x}, y={y}")
-
-            # go to beam
-            print("Movendo para o feixe com as coordenadas clicadas.")
-            res = self.move_to_beam(x, y)  # wait before continue
-            print(f"Resultado do movimento para o feixe: {res}")
-
-            if click < 2:
-                print(f"Executando rotação relativa do motor phi em 90 graus (click={click})...")
-                self.motor_hwobj_dict["phi"].set_value_relative(90)
-
-        print(f"Salvando última posição centrada: x={x}, y={y}")
-        self.last_centred_position[0] = x
-        self.last_centred_position[1] = y
-
-        print("Centragem manual finalizada.")
+            self.log.info(f"{x}, {y}")
+            plan_params = {
+                "name":"manual_alignment", 
+                "item_type": "plan",
+                "kwargs": {
+                    "x_px": x,
+                    "y_px": y,
+                    "step": step
+                }
+            }
+            self._bluesky_api.execute_plan(plan_params)
+        self.log.info("Manual sample alignment has finished...")
         return {}
 
     def automatic_centring(self):
-        """Automatic centring procedure"""
-        self.log.info("Initializing sample alignment...")
+        self.log.info("Initializing automatic sample alignment...")
 
         plan_params = {
             "name":"automatic_alignment", 
