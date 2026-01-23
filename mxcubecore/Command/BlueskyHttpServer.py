@@ -22,6 +22,7 @@ import os
 import requests
 import json
 import time
+import gevent
 from mxcubecore.CommandContainer import (CommandObject)
 
 __copyright__ = """ Copyright © 2010 - 2020 by MXCuBE Collaboration """
@@ -33,7 +34,7 @@ class BlueskyHttpServerCommand(CommandObject):
 
     _default_timeout = 5
     _status_path = "api/status"
-    _execute_path = "queue/item/execute"
+    _execute_path = "api/queue/item/execute"
 
     def __init__(
         self, name, url, timeout=5, **kwargs
@@ -60,9 +61,10 @@ class BlueskyHttpServerCommand(CommandObject):
         )
         return self.format_response(response)
  
-    def monitor_manager_state(self, stop_state):
-        while self.status()["manager_state"] != stop_state:
-            time.sleep(0.1)
+    def monitor_manager_state(self, stop_state, timeout=86400):
+        with gevent.Timeout(timeout, exception=TimeoutError):
+            while self.status()["manager_state"] != stop_state:
+                time.sleep(0.1)
    
     def execute_plan(self, plan_name, kwargs = {}):
         return requests.post(
