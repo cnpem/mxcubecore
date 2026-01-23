@@ -132,12 +132,19 @@ def _setup_sardana_commands(hwobj: HardwareObject, sardana_config: dict):
         setup_door(door_name, door_config)
 
 
+def _setup_bluesky_http_server_command(hwobj: HardwareObject, server: str):
+    hwobj.add_command({
+        "type": "bluesky_http_server",
+        "name": "server"
+    }, server)
+
 def _protocol_handles():
     return {
         "tango": _setup_tango_commands_channels,
         "exporter": _setup_exporter_commands_channels,
         "epics": _setup_epics_channels,
         "sardana": _setup_sardana_commands,
+        "bluesky_http_server": _setup_bluesky_http_server_command,
     }
 
 

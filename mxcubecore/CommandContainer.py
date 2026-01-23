@@ -759,6 +759,18 @@ class CommandContainer:
                     self.id,
                     cmd_name,
                 )
+        
+        elif cmd_type.lower() == "bluesky_http_server":
+            try:
+                from mxcubecore.Command.BlueskyHttpServer import BlueskyHttpServerCommand
+
+                new_command = BlueskyHttpServerCommand(cmd_name, cmd, **attributes_dict)
+            except Exception as exc:
+                logging.getLogger().exception(
+                    "%s: cannot establish a connection with the Bluesky Http Server %s",
+                    self.id,
+                    cmd_name,
+                )
 
         elif cmd_type.lower() == "sardana":
             doorname = None
