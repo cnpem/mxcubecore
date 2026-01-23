@@ -193,16 +193,15 @@ class LNLSDiffractometer(GenericDiffractometer):
 
     def automatic_centring(self):
         """Automatic centring procedure"""
-        print("Iniciando centragem automática...")
+        self.log.info("Initializing sample alignment...")
+
+        plan_params = {
+            "name":"automatic_alignment", 
+            "item_type": "plan"
+        }
+        self._bluesky_api.execute_plan(plan_params)
+        self.log.info("Automatic sample alignment has finished...")
         
-        centred_pos_dir = self._get_random_centring_position()
-        print(f"Posição centrada gerada automaticamente: {centred_pos_dir}")
-
-        self.emit("newAutomaticCentringPoint", centred_pos_dir)
-        print("Sinal 'newAutomaticCentringPoint' emitido.")
-
-        return centred_pos_dir
-
     def move_to_beam(self, x, y, omega=None):
         """
         Descript. : function to create a centring point based on all motors
