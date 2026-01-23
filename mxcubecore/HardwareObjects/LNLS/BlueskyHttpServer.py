@@ -31,11 +31,12 @@ class BlueskyHttpServer(HardwareObject):
     
     def execute_plan(self, plan_name, kwargs = {}):
         response = self.api.execute_plan(plan_name=plan_name, kwargs=kwargs)
-        if response.status == 200:
+        response_content = response.json()
+        if response_content["success"]:
             try:
                 self.api.monitor_manager_state("running")
                 self.api.monitor_manager_state("idle")
             except TimeoutError:
                 self.log.error("The Bluesky plan has timed out!")
         else:
-            self.log.error("An error ocurred while trying to execute the bluesky plan!")
+            self.log.error(response_content["msg"])
