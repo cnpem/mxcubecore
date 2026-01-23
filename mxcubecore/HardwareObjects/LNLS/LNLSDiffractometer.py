@@ -32,12 +32,6 @@ class LNLSDiffractometer(GenericDiffractometer):
         self._bluesky_api = BlueskyAPIInterface()
 
     def init(self):
-        """
-        Descript. :
-        """
-        # self.image_width = 100
-        # self.image_height = 100
-
         GenericDiffractometer.init(self)
         self.pixels_per_mm_x = 10**-4
         self.pixels_per_mm_y = 10**-4
@@ -147,10 +141,6 @@ class LNLSDiffractometer(GenericDiffractometer):
         self.log.info("Automatic sample alignment has finished...")
         
     def move_to_beam(self, x, y, omega=None):
-        """
-        Descript. : function to create a centring point based on all motors
-                    positions.
-        """
         self.log.info("Moving to beam...")
 
         plan_params = {
