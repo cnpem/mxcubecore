@@ -21,6 +21,7 @@
 import os
 import requests
 import json
+import time
 from mxcubecore.CommandContainer import (CommandObject)
 
 __copyright__ = """ Copyright © 2010 - 2020 by MXCuBE Collaboration """
@@ -32,11 +33,13 @@ class BlueskyHttpServerCommand(CommandObject):
 
     _default_timeout = 5
     _status_path = "api/status"
+    _execute_path = "queue/item/execute"
 
     def __init__(
         self, name, url, timeout=5, **kwargs
     ):
         CommandObject.__init__(self, name, **kwargs)
+        self.username = ""
         self._default_timeout = timeout
         self._url = f"{url}/" if url[-1] != "/" else url
         self._headers = {
@@ -56,6 +59,25 @@ class BlueskyHttpServerCommand(CommandObject):
             timeout=self._default_timeout
         )
         return self.format_response(response)
+ 
+    def monitor_manager_state(self, stop_state):
+        while self.status()["manager_state"] != stop_state:
+            time.sleep(0.1)
+   
+    def execute_plan(self, plan_name, kwargs = {}):
+        return requests.post(
+            self._url + self._execute_path, 
+            headers=self._headers, 
+            json = {
+                "user": self.username,
+                "item":  {
+                    "name": plan_name, 
+                    "item_type": "plan",
+                    "kwargs": kwargs
+                }
+            }, 
+            timeout=self._default_timeout
+        )
 
     def is_connected(self):
         http_server_status = self.status()
