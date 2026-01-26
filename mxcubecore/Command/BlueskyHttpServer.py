@@ -18,12 +18,14 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with MXCuBE. If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import requests
 import json
+import os
 import time
+
 import gevent
-from mxcubecore.CommandContainer import (CommandObject)
+import requests
+
+from mxcubecore.CommandContainer import CommandObject
 
 __copyright__ = """ Copyright © 2010 - 2020 by MXCuBE Collaboration """
 __license__ = "LGPLv3+"
@@ -36,65 +38,47 @@ class BlueskyHttpServerCommand(CommandObject):
     _status_path = "api/status"
     _execute_path = "api/queue/item/execute"
 
-    def __init__(
-        self, name, url, timeout=5, **kwargs
-    ):
+    def __init__(self, name, url, timeout=5, **kwargs):
         CommandObject.__init__(self, name, **kwargs)
         self.username = ""
         self._default_timeout = timeout
         self._url = f"{url}/" if url[-1] != "/" else url
-        self._headers = {
-            "Authorization": f"ApiKey {os.environ['AUTH_KEY']}"
-        }
-    
+        self._headers = {"Authorization": f"ApiKey {os.environ['AUTH_KEY']}"}
+
     def format_response(self, response):
         if response:
-           response.raise_for_status()
-           return json.loads(response.text)
+            response.raise_for_status()
+            return json.loads(response.text)
         return response
-    
+
     def status(self):
         response = requests.get(
             self._url + self._status_path,
             headers=self._headers,
-            timeout=self._default_timeout
+            timeout=self._default_timeout,
         )
         return self.format_response(response)
- 
+
     def monitor_manager_state(self, stop_state, timeout=86400):
         with gevent.Timeout(timeout, exception=TimeoutError):
             while self.status()["manager_state"] != stop_state:
                 time.sleep(0.1)
-   
-    def execute_plan(self, plan_name, kwargs = {}):
+
+    def execute_plan(self, plan_name, kwargs=None):
+        if not kwargs:
+            kwargs = {}
         return requests.post(
-            self._url + self._execute_path, 
-            headers=self._headers, 
-            json = {
+            self._url + self._execute_path,
+            headers=self._headers,
+            json={
                 "user": self.username,
-                "item":  {
-                    "name": plan_name, 
-                    "item_type": "plan",
-                    "kwargs": kwargs
-                }
-            }, 
-            timeout=self._default_timeout
+                "item": {"name": plan_name, "item_type": "plan", "kwargs": kwargs},
+            },
+            timeout=self._default_timeout,
         )
 
     def is_connected(self):
         http_server_status = self.status()
-        re_environment_open = http_server_status["worker_environment_exists"] == True
-        re_running = http_server_status["re_state"] != None
+        re_environment_open = http_server_status["worker_environment_exists"]
+        re_running = http_server_status["re_state"] is not None
         return re_environment_open and re_running
-
-    def __call__(self, *args, **kwargs):
-        self.emit("commandBeginWaitReply", (str(self.name()),))
-
-        try:
-            is_connected = self.is_connected()
-        except Exception:
-            self.emit("commandFailed", (-1, self.name()))
-            raise
-        else:
-            self.emit("commandReplyArrived", (is_connected, str(self.name())))
-            return is_connected

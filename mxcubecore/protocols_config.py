@@ -133,10 +133,10 @@ def _setup_sardana_commands(hwobj: HardwareObject, sardana_config: dict):
 
 
 def _setup_bluesky_http_server_command(hwobj: HardwareObject, server: str):
-    hwobj.add_command({
-        "type": "bluesky_http_server",
-        "name": "bluesky_http_server"
-    }, server)
+    hwobj.add_command(
+        {"type": "bluesky_http_server", "name": "bluesky_http_server"}, server
+    )
+
 
 def _protocol_handles():
     return {
