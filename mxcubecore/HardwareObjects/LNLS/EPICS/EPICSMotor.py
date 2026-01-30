@@ -121,7 +121,7 @@ class EPICSMotorDetachable(EPICSMotor):
         'presence':
             suffix: "PRESENCE_SUFFIX"
     configuration:
-    is_present_value: 0
+    is_absent_value: 0
 
     """
 
@@ -132,7 +132,7 @@ class EPICSMotorDetachable(EPICSMotor):
         self.get_value()
 
     def get_value(self):
-        value = self.get_property("is_present_value")
+        value = self.get_property("is_absent_value")
         current_value = int(self.get_channel_value(self.MOTOR_PRESENCE_RBV))
         if current_value == value:
             self.update_state(self.STATES.OFF)
