@@ -102,9 +102,9 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
 class EPICSMotorDetachable(EPICSMotor):
     """
     Class that implements an interface of motor record IOC and accepts
-    a presence PV, that indicated if the motor is or is not present on the 
+    a presence PV, that indicated if the motor is or is not present on the
     facility. If it is present, it actuates as an EpicsMotor, if it is not,
-    then the widget receives the state OFF and remains disabled. 
+    then the widget receives the state OFF and remains disabled.
 
     YAML Example
     ------------
@@ -112,7 +112,7 @@ class EPICSMotorDetachable(EPICSMotor):
     %YAML 1.2
     ---
     class: LNLS.EPICS.EPICSMotor.EPICSMotorDetachable
-    epics: 
+    epics:
     "MOTOR_PV":
         channels:
         '':
@@ -124,6 +124,7 @@ class EPICSMotorDetachable(EPICSMotor):
     is_present_value: 0
 
     """
+
     MOTOR_PRESENCE_RBV = "presence"
 
     def init(self):
