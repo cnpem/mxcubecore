@@ -97,3 +97,20 @@ class EPICSMotor(EPICSActuator, AbstractMotor):
     def done_movement(self):
         dmov = self.get_channel_value(self.MOTOR_DMOV)
         return bool(dmov)
+
+
+class EPICSMotorDetachable(EPICSMotor):
+    MOTOR_PRESENCE_RBV = "presence"
+
+    def init(self):
+        super().init()
+        self.get_value()
+
+    def get_value(self):
+        value = self.get_property("is_present_value")
+        current_value = int(self.get_channel_value(self.MOTOR_PRESENCE_RBV))
+        if current_value == value:
+            self.update_state(self.STATES.OFF)
+        else:
+            self.update_state(self.STATES.READY)
+        return super().get_value()
