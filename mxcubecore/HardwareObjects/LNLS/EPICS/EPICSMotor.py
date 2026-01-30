@@ -135,6 +135,4 @@ class EPICSMotorDetachable(EPICSMotor):
         current_value = int(self.get_channel_value(self.MOTOR_PRESENCE_RBV))
         if current_value == value:
             self.update_state(self.STATES.OFF)
-        else:
-            self.update_state(self.STATES.READY)
         return super().get_value()
