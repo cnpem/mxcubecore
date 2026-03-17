@@ -54,7 +54,7 @@ class BlueskyHttpServerCommand(CommandObject):
         self.output_poller = Poller.poll(
             polled_call=self.update_console_output,
             polling_period=500,
-            value_changed_callback=self.emit_console_update,
+            value_changed_callback=self.show_console_output,
             error_callback=self.poll_failed,
         )
 
@@ -110,7 +110,7 @@ class BlueskyHttpServerCommand(CommandObject):
         )
         return self.format_response(response)["console_output_uid"]
 
-    def emit_console_update(self, value=None):
+    def show_console_output(self, value=[]):
         for console_msg in value:
             new_console_line = console_msg["msg"]
             new_console_line = new_console_line.strip()
@@ -138,4 +138,4 @@ class BlueskyHttpServerCommand(CommandObject):
             self.last_msg_uid = output["last_msg_uid"]
             self.console_output_uid = current_uid
             return output["console_output_msgs"]
-        return None
+        return []
