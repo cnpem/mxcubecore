@@ -10,6 +10,35 @@ from math import (
 
 
 class ResolutionVirtualMotor(EPICSMotor):
+    """
+    This class implements the resolution virtual motor.
+
+    YAML Example
+    ------------
+
+    %YAML 1.2
+    ---
+    class: LNLS.LNLSResolution.ResolutionVirtualMotor
+    epics:
+    "MNC:B:PB04:CS1:m9":
+        channels:
+        "":
+    "MX2:cam1:BeamX":
+        channels:
+        beam_x:
+            suffix: ""
+            polling_period: 200
+    "MX2:cam1:BeamY":
+        channels:
+        beam_y:
+            suffix: ""
+            polling_period: 200
+    configuration:
+    tolerance: 0.01
+    pixel_size_mm: 0.172
+    n_pixels_x: 1475
+    n_pixels_y: 1679
+    """
     BEAM_X_RBV = "beam_x"
     BEAM_Y_RBV = "beam_y"
 

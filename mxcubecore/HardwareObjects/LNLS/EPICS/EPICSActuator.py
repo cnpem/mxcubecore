@@ -104,7 +104,6 @@ class EPICSActuatorBluesky(EPICSActuator):
     plan_name: "move_energy_and_phase"
     plan_parameter: "energy"
     limits: (5, 20)
-
     """
 
     def init(self):
