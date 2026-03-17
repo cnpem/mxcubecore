@@ -103,12 +103,15 @@ class EPICSActuatorBluesky(EPICSActuator):
     tolerance: 0.01
     plan_name: "move_energy_and_phase"
     plan_parameter: "energy"
-    limits: (5, 20)
+    default_limits: (5, 20)
     """
+
+    def __init__(self, name):
+        super().__init__(name)
+        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
 
     def init(self):
         super().init()
-        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
         self.plan_name = self.get_property("plan_name")
         self.plan_parameter = self.get_property("plan_parameter")
 
