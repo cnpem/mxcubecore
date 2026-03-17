@@ -42,18 +42,19 @@ class ResolutionVirtualMotor(EPICSMotor):
     BEAM_X_RBV = "beam_x"
     BEAM_Y_RBV = "beam_y"
 
-    def init(self):
-        super().init()
+    def __init__(self,  name: str):
+        super().__init__(name)
         self.wavelength = HWR.beamline.get_object_by_role("wavelength")
+
+    def init(self):
         self.pixel_size_mm = self.get_property("pixel_size_mm")
         self.n_pixels_x = self.get_property("n_pixels_x")
         self.n_pixels_y = self.get_property("n_pixels_y")
         self.dx = self.n_pixels_x  * self.pixel_size_mm
         self.dy = self.n_pixels_y  * self.pixel_size_mm
-        self._nominal_limits = self.calculate_nominal_limits()
-        self.get_limits()
+        super().init()
 
-    def calculate_nominal_limits(self):
+    def get_limits(self):
         llm = self.get_channel_value(self.MOTOR_LLM)
         hlm = self.get_channel_value(self.MOTOR_HLM)
         low_limit = self.distance_to_resolution(llm)
@@ -96,6 +97,10 @@ class ResolutionVirtualMotor(EPICSMotor):
     def get_value(self):
         distance = super().get_value()
         return self.distance_to_resolution(distance)
+
+    def update_value(self, value=None) -> None:
+        value = self.get_value()
+        super().update_value(value)
 
     def _set_value(self, value):
         resolution = value
