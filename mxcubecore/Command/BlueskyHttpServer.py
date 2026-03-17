@@ -19,15 +19,15 @@
 #  along with MXCuBE. If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import logging
 import os
 import time
 
 import gevent
 import requests
-import logging
 
-from mxcubecore.CommandContainer import CommandObject
 from mxcubecore import Poller
+from mxcubecore.CommandContainer import CommandObject
 
 __copyright__ = """ Copyright © 2010 - 2020 by MXCuBE Collaboration """
 __license__ = "LGPLv3+"
@@ -55,11 +55,11 @@ class BlueskyHttpServerCommand(CommandObject):
             polled_call=self.update_console_output,
             polling_period=500,
             value_changed_callback=self.emit_console_update,
-            error_callback=self.poll_failed
+            error_callback=self.poll_failed,
         )
 
     def poll_failed(self, exception, poller_id):
-        print(exception)
+        self.user_level_log.error(exception)
         poller = Poller.get_poller(poller_id)
         if poller is not None:
             poller.restart(1000)
@@ -81,7 +81,6 @@ class BlueskyHttpServerCommand(CommandObject):
     def monitor_manager_state(self, stop_state, timeout=86400):
         with gevent.Timeout(timeout, exception=TimeoutError):
             while self.status()["manager_state"] != stop_state:
-                
                 time.sleep(0.1)
 
     def execute_plan(self, plan_name, kwargs=None):
@@ -111,13 +110,13 @@ class BlueskyHttpServerCommand(CommandObject):
         )
         return self.format_response(response)["console_output_uid"]
 
-    def emit_console_update(self, value = None):
+    def emit_console_update(self, value=None):
         for console_msg in value:
             new_console_line = console_msg["msg"]
             new_console_line = new_console_line.strip()
             if new_console_line != "":
-                is_error = ("[E " in new_console_line)
-                is_warning = ("[W " in new_console_line)
+                is_error = "[E " in new_console_line
+                is_warning = "[W " in new_console_line
                 is_debug = ("[I " in new_console_line) or ("[D " in new_console_line)
                 if is_error:
                     self.user_level_log.error(new_console_line)
@@ -132,12 +131,11 @@ class BlueskyHttpServerCommand(CommandObject):
             response = requests.get(
                 self._url + self._console_path,
                 headers=self._headers,
-                json={
-                    "last_msg_uid": self.last_msg_uid
-                },
+                json={"last_msg_uid": self.last_msg_uid},
                 timeout=self._default_timeout,
             )
             output = self.format_response(response)
             self.last_msg_uid = output["last_msg_uid"]
             self.console_output_uid = current_uid
             return output["console_output_msgs"]
+        return None
