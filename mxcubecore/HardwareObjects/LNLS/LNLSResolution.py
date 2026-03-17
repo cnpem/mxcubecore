@@ -12,14 +12,6 @@ from math import (
 class ResolutionVirtualMotor(EPICSMotor):
     BEAM_X_RBV = "beam_x"
     BEAM_Y_RBV = "beam_y"
-    MOTOR_DMOV = "dmov"
-    MOTOR_STOP = "stop"
-    MOTOR_VELO = "velo"
-    MOTOR_ACCL = "accl"
-    MOTOR_HLM = "hlm"
-    MOTOR_LLM = "llm"
-    MOTOR_EGU = "egu"
-    MOTOR_PREC = "prec"
 
     def init(self):
         super().init()
