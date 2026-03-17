@@ -78,6 +78,34 @@ class EPICSActuator(AbstractActuator):
 
 
 class EPICSActuatorBluesky(EPICSActuator):
+    """
+    This class alters the _set_value function of EPICSActuator for
+    cases when the set is done via bluesky rather than directly by
+    MXCuBE. The plan's name and parameter must be specified at the
+    configuration file. Because wait_ready function works the same
+    way as EPICSActuator, frontend functionality remains the same.
+
+    YAML Example
+    ------------
+
+    %YAML 1.2
+    ---
+    class: LNLS.EPICS.EPICSActuator.EPICSActuatorBluesky
+    epics:
+    "MNC:A:DCM01:":
+        channels:
+        rbv:
+            suffix: "GonRx_Energy_RBV"
+            polling_period: 200
+        val:
+            suffix: "Energy_SP"
+    configuration:
+    tolerance: 0.01
+    plan_name: "move_energy_and_phase"
+    plan_parameter: "energy"
+    limits: (5, 20)
+
+    """
 
     def init(self):
         super().init()
