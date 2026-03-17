@@ -37,6 +37,7 @@ class BlueskyHttpServerCommand(CommandObject):
     _default_timeout = 5
     _status_path = "api/status"
     _execute_path = "api/queue/item/execute"
+    _console_path = "api/console_output"
 
     def __init__(self, name, url, timeout=5, **kwargs):
         CommandObject.__init__(self, name, **kwargs)
@@ -82,3 +83,11 @@ class BlueskyHttpServerCommand(CommandObject):
         re_environment_open = http_server_status["worker_environment_exists"]
         re_running = http_server_status["re_state"] is not None
         return re_environment_open and re_running
+
+    def console_output(self):
+        response = requests.get(
+            self._url + self._console_path,
+            headers=self._headers,
+            timeout=self._default_timeout,
+        )
+        return self.format_response(response)
