@@ -4,8 +4,8 @@ from typing import Optional
 import gevent
 import numpy as np
 
-from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
 from mxcubecore import HardwareRepository as HWR
+from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
 
 
 class EPICSActuator(AbstractActuator):
