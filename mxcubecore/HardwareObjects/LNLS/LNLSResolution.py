@@ -56,8 +56,7 @@ class ResolutionVirtualMotor(EPICSMotor):
         super().init()
 
     def get_limits(self):
-        llm = self.get_channel_value(self.MOTOR_LLM)
-        hlm = self.get_channel_value(self.MOTOR_HLM)
+        llm, hlm = super().get_limits()
         low_limit = self.distance_to_resolution(llm)
         high_limit = self.distance_to_resolution(hlm)
         return (low_limit, high_limit)
