@@ -54,7 +54,8 @@ class BlueskyHttpServerCommand(CommandObject):
         self.output_poller = Poller.poll(
             polled_call=self.update_console_output,
             polling_period=500,
-            value_changed_callback=lambda test: print("1")
+            value_changed_callback=self.emit_console_update,
+            error_callback=lambda exp: print("Logger Error!!")
         )
 
 
@@ -105,6 +106,21 @@ class BlueskyHttpServerCommand(CommandObject):
         )
         return self.format_response(response)["console_output_uid"]
 
+    def emit_console_update(self, value = None):
+        for console_msg in value:
+            new_console_line = console_msg["msg"]
+            new_console_line = new_console_line.strip()
+            if new_console_line != "":
+                is_error = ("[E " in new_console_line)
+                is_warning = ("[W " in new_console_line)
+                is_debug = ("[I " in new_console_line) or ("[D " in new_console_line)
+                if is_error:
+                    self.user_level_log.error(new_console_line)
+                elif is_warning:
+                    self.user_level_log.warning(new_console_line)
+                elif not is_debug:
+                    self.user_level_log.info(new_console_line)
+
     def update_console_output(self):
         current_uid = self.get_console_uid()
         if self.console_output_uid != current_uid:
@@ -119,18 +135,4 @@ class BlueskyHttpServerCommand(CommandObject):
             output = self.format_response(response)
             self.last_msg_uid = output["last_msg_uid"]
             self.console_output_uid = current_uid
-            for console_msg in output["console_output_msgs"]:
-                new_console_line = console_msg["msg"]
-                new_console_line = new_console_line.strip()
-                if new_console_line != "":
-                    is_error = ("[E " in new_console_line)
-                    is_warning = ("[W " in new_console_line)
-                    is_debug = ("[I " in new_console_line) or ("[D " in new_console_line)
-                    if is_error:
-                        self.user_level_log.error(new_console_line)
-                    elif is_warning:
-                        self.user_level_log.warning(new_console_line)
-                    elif not is_debug:
-                        self.user_level_log.info(new_console_line)
-            
             return output["console_output_msgs"]
