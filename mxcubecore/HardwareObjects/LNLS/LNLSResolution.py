@@ -25,19 +25,24 @@ class ResolutionVirtualMotor(EPICSMotor):
         "":
     "MX2:cam1:BeamX":
         channels:
-        beam_x:
-            suffix: ""
-            polling_period: 200
+            beam_x:
+                suffix: ""
+                polling_period: 200
     "MX2:cam1:BeamY":
         channels:
-        beam_y:
-            suffix: ""
-            polling_period: 200
+            beam_y:
+                suffix: ""
+                polling_period: 200
+    "MX2:cam1:Wavelength":
+        channels:
+            wavelength_rbv:
+                suffix: ""
+                polling_period: 200
     configuration:
-    tolerance: 0.01
-    pixel_size_mm: 0.172
-    n_pixels_x: 1475
-    n_pixels_y: 1679
+        tolerance: 0.01
+        pixel_size_mm: 0.172
+        n_pixels_x: 1475
+        n_pixels_y: 1679
     """
 
     BEAM_X_RBV = "beam_x"
@@ -54,6 +59,7 @@ class ResolutionVirtualMotor(EPICSMotor):
         self.dx = self.n_pixels_x * self.pixel_size_mm
         self.dy = self.n_pixels_y * self.pixel_size_mm
         super().init()
+        self.connect(self.get_channel_object("wavelength_rbv"), "update", self.update_value)
 
     def get_limits(self):
         llm, hlm = super().get_limits()
