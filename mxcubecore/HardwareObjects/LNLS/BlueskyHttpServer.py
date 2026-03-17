@@ -15,7 +15,7 @@ class BlueskyHttpServer(HardwareObject):
         response_content = response.json()
         if response_content["success"]:
             try:
-                self.api.monitor_manager_state("running")
+                self.api.monitor_manager_state("executing_queue")
                 self.api.monitor_manager_state("idle")
             except TimeoutError:
                 self.log.exception("The Bluesky plan has timed out!")
