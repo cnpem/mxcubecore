@@ -110,7 +110,9 @@ class BlueskyHttpServerCommand(CommandObject):
         )
         return self.format_response(response)["console_output_uid"]
 
-    def show_console_output(self, value=[]):
+    def show_console_output(self, value=None):
+        if value is None:
+            value = []
         for console_msg in value:
             new_console_line = console_msg["msg"]
             new_console_line = new_console_line.strip()
