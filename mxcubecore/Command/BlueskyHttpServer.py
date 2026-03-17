@@ -55,9 +55,14 @@ class BlueskyHttpServerCommand(CommandObject):
             polled_call=self.update_console_output,
             polling_period=500,
             value_changed_callback=self.emit_console_update,
-            error_callback=lambda exp: print("Logger Error!!")
+            error_callback=self.poll_failed
         )
 
+    def poll_failed(self, exception, poller_id):
+        print(exception)
+        poller = Poller.get_poller(poller_id)
+        if poller is not None:
+            poller.restart(1000)
 
     def format_response(self, response):
         if response:
