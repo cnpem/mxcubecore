@@ -24,8 +24,10 @@ import time
 
 import gevent
 import requests
+import logging
 
 from mxcubecore.CommandContainer import CommandObject
+from mxcubecore import Poller
 
 __copyright__ = """ Copyright © 2010 - 2020 by MXCuBE Collaboration """
 __license__ = "LGPLv3+"
@@ -37,7 +39,8 @@ class BlueskyHttpServerCommand(CommandObject):
     _default_timeout = 5
     _status_path = "api/status"
     _execute_path = "api/queue/item/execute"
-    _console_path = "api/console_output"
+    _console_uid_path = "api/console_output/uid"
+    _console_path = "api/console_output_update"
 
     def __init__(self, name, url, timeout=5, **kwargs):
         CommandObject.__init__(self, name, **kwargs)
@@ -45,6 +48,15 @@ class BlueskyHttpServerCommand(CommandObject):
         self._default_timeout = timeout
         self._url = f"{url}/" if url[-1] != "/" else url
         self._headers = {"Authorization": f"ApiKey {os.environ['AUTH_KEY']}"}
+        self.console_output_uid = self.get_console_uid()
+        self.last_msg_uid = ""
+        self.user_level_log = logging.getLogger("user_level_log")
+        self.output_poller = Poller.poll(
+            polled_call=self.update_console_output,
+            polling_period=500,
+            value_changed_callback=lambda test: print("1")
+        )
+
 
     def format_response(self, response):
         if response:
@@ -63,6 +75,7 @@ class BlueskyHttpServerCommand(CommandObject):
     def monitor_manager_state(self, stop_state, timeout=86400):
         with gevent.Timeout(timeout, exception=TimeoutError):
             while self.status()["manager_state"] != stop_state:
+                
                 time.sleep(0.1)
 
     def execute_plan(self, plan_name, kwargs=None):
@@ -84,10 +97,40 @@ class BlueskyHttpServerCommand(CommandObject):
         re_running = http_server_status["re_state"] is not None
         return re_environment_open and re_running
 
-    def console_output(self):
+    def get_console_uid(self):
         response = requests.get(
-            self._url + self._console_path,
+            self._url + self._console_uid_path,
             headers=self._headers,
             timeout=self._default_timeout,
         )
-        return self.format_response(response)
+        return self.format_response(response)["console_output_uid"]
+
+    def update_console_output(self):
+        current_uid = self.get_console_uid()
+        if self.console_output_uid != current_uid:
+            response = requests.get(
+                self._url + self._console_path,
+                headers=self._headers,
+                json={
+                    "last_msg_uid": self.last_msg_uid
+                },
+                timeout=self._default_timeout,
+            )
+            output = self.format_response(response)
+            self.last_msg_uid = output["last_msg_uid"]
+            self.console_output_uid = current_uid
+            for console_msg in output["console_output_msgs"]:
+                new_console_line = console_msg["msg"]
+                new_console_line = new_console_line.strip()
+                if new_console_line != "":
+                    is_error = ("[E " in new_console_line)
+                    is_warning = ("[W " in new_console_line)
+                    is_debug = ("[I " in new_console_line) or ("[D " in new_console_line)
+                    if is_error:
+                        self.user_level_log.error(new_console_line)
+                    elif is_warning:
+                        self.user_level_log.warning(new_console_line)
+                    elif not is_debug:
+                        self.user_level_log.info(new_console_line)
+            
+            return output["console_output_msgs"]
