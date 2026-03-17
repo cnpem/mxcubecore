@@ -1,12 +1,12 @@
-from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSMotor import EPICSMotor
-from mxcubecore import HardwareRepository as HWR
-import logging
 from math import (
     asin,
     atan,
     sin,
     tan,
 )
+
+from mxcubecore import HardwareRepository as HWR
+from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSMotor import EPICSMotor
 
 
 class ResolutionVirtualMotor(EPICSMotor):
@@ -39,10 +39,11 @@ class ResolutionVirtualMotor(EPICSMotor):
     n_pixels_x: 1475
     n_pixels_y: 1679
     """
+
     BEAM_X_RBV = "beam_x"
     BEAM_Y_RBV = "beam_y"
 
-    def __init__(self,  name: str):
+    def __init__(self, name: str):
         super().__init__(name)
         self.wavelength = HWR.beamline.get_object_by_role("wavelength")
 
@@ -50,8 +51,8 @@ class ResolutionVirtualMotor(EPICSMotor):
         self.pixel_size_mm = self.get_property("pixel_size_mm")
         self.n_pixels_x = self.get_property("n_pixels_x")
         self.n_pixels_y = self.get_property("n_pixels_y")
-        self.dx = self.n_pixels_x  * self.pixel_size_mm
-        self.dy = self.n_pixels_y  * self.pixel_size_mm
+        self.dx = self.n_pixels_x * self.pixel_size_mm
+        self.dy = self.n_pixels_y * self.pixel_size_mm
         super().init()
 
     def get_limits(self):
@@ -62,7 +63,6 @@ class ResolutionVirtualMotor(EPICSMotor):
         return (low_limit, high_limit)
 
     def get_radius(self):
-        distance = self.get_channel_value("rbv")
         beam_x = self.get_channel_value(self.BEAM_X_RBV) * self.pixel_size_mm
         radius_x = min(beam_x, self.dx - beam_x)
         beam_y = self.get_channel_value(self.BEAM_Y_RBV) * self.pixel_size_mm
@@ -76,9 +76,11 @@ class ResolutionVirtualMotor(EPICSMotor):
             two_theta = atan(radius / distance)
             theta = two_theta / 2
             return wavelength / (2 * sin(theta))
-        except Exception as e:
-            msg = f"Error converting distance to resolution: {e}"
-            self.print_log(level="error", msg=msg)
+        except ZeroDivisionError:
+            self.print_log(level="error", msg="Distance cannot be zero")
+            return None
+        except TypeError as e:
+            self.print_log(level="error", msg=f"Invalid numeric input: {e}")
             return None
 
     def resolution_to_distance(self, resolution):
@@ -87,11 +89,12 @@ class ResolutionVirtualMotor(EPICSMotor):
         try:
             theta = asin(wavelength / (2 * resolution))
             two_theta = 2 * theta
-            distance = radius / tan(two_theta)
-            return distance
-        except Exception as e:
-            msg = f"Error converting resolution to distance: {e}"
-            self.print_log(level="error", msg=msg)
+            return radius / tan(two_theta)
+        except ZeroDivisionError:
+            self.print_log(level="error", msg="Resolution cannot be zero")
+            return None
+        except TypeError as e:
+            self.print_log(level="error", msg=f"Invalid numeric input: {e}")
             return None
 
     def get_value(self):
