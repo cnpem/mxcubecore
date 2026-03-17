@@ -59,7 +59,9 @@ class ResolutionVirtualMotor(EPICSMotor):
         self.dx = self.n_pixels_x * self.pixel_size_mm
         self.dy = self.n_pixels_y * self.pixel_size_mm
         super().init()
-        self.connect(self.get_channel_object("wavelength_rbv"), "update", self.update_value)
+        self.connect(
+            self.get_channel_object("wavelength_rbv"), "update", self.update_value
+        )
 
     def get_limits(self):
         llm, hlm = super().get_limits()
