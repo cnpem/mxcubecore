@@ -5,6 +5,7 @@ import gevent
 import numpy as np
 
 from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
+from mxcubecore import HardwareRepository as HWR
 
 
 class EPICSActuator(AbstractActuator):
@@ -74,3 +75,22 @@ class EPICSActuator(AbstractActuator):
         if self._wait_task is not None:
             self._wait_task.set()
         self.update_state(self.STATES.READY)
+
+
+class EPICSActuatorBluesky(EPICSActuator):
+
+    def init(self):
+        super().init()
+        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        self.plan_name = self.get_property("plan_name")
+        self.plan_parameter = self.get_property("plan_parameter")
+
+    def _set_value(self, value):
+        self.setpoint = value
+        self.update_state(self.STATES.BUSY)
+        self._bluesky_api.execute_plan(
+            plan_name=self.plan_name,
+            kwargs={
+                self.plan_parameter: value,
+            },
+        )
