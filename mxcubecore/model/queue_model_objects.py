@@ -2210,11 +2210,15 @@ class GphlWorkflow(TaskNode):
                 resolution, orgxy=orgxy, Distance=distance
             )
 
+        maximum_chi = settings["maximum_chi"]
+        maximum_chi_from_limits = HWR.beamline.gphl_workflow.derive_maximum_chi()
+        if maximum_chi_from_limits:
+            maximum_chi = min(maximum_chi, maximum_chi_from_limits)
         self.strategy_options = {
             "strategy_type": self.strategy_type,
             "angular_tolerance": settings["angular_tolerance"],
             "clip_kappa": settings["angular_tolerance"],
-            "maximum_chi": settings["maximum_chi"],
+            "maximum_chi": maximum_chi,
         }
         for tag in ("allow_duplicate_orientations", "delphi_block", "stratcal_step"):
             if tag in settings:
@@ -2345,7 +2349,7 @@ class GphlWorkflow(TaskNode):
         )
         if not self.strategy_settings:
             raise ValueError(
-                "No GΦL workflow strategy named %s found" % params["strategy_name"]
+                "No GPhL workflow strategy named %s found" % params["strategy_name"]
             )
 
         self.shape = params.get("shape", "")
@@ -2428,6 +2432,11 @@ class GphlWorkflow(TaskNode):
             self.cell_parameters = tpl
         self.protein_acronym = crystal.protein_acronym
         self.space_group = self.input_space_group = crystal.space_group
+        use_cell_for_processing = False
+        if self.input_space_group:
+            # Only set use_cell_for_processing to True if spacegroup is set
+            use_cell_for_processing = params.pop("use_cell_for_processing", False)
+        self.use_cell_for_processing = use_cell_for_processing
 
         # Set to current wavelength for now - nothing else available
         wavelength = HWR.beamline.energy.get_wavelength()
@@ -2490,7 +2499,7 @@ class GphlWorkflow(TaskNode):
 
     @property
     def wfname(self):
-        """ "Workflow full name, e.g. "GΦL Diffractometer calibration" """
+        """ "Workflow full name, e.g. "GPhL Diffractometer calibration" """
         return self.strategy_settings["wfname"]
 
     @property
