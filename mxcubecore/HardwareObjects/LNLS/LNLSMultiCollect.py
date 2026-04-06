@@ -12,6 +12,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self._centring_status = None
         self.ready_event = None
         self.actual_frame_num = 0
+        self.collection_id = None
+        self.xds_directory = ""
 
     def init(self):
         self.emit("collectConnected", (True,))
@@ -41,11 +43,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "file_name": file_name,
                 "angle_increment": step_size,
                 "acquire_time": acquire_time,
-                "num_images": num_of_points,
-                # "wavelength": wavelength,
-                # "detector_distance": detector_distance,
-                # "threshold_energy": threshold_energy,
-                # "filter_transmition": filter_transmition,
+                "num_images": num_of_points
             },
         )
 
@@ -118,18 +116,12 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "start_angle": start_angle,
                 "angle_increment": angle_increment,
                 "acquire_time": exp_time,
-                "num_images": 1,  # One image per grid, because there is no oscillation at gridscan
-                # "wavelength": wavelength,
-                # "detector_distance": detector_distance,
-                # "threshold_energy": threshold_energy,
-                # "filter_transmition": filter_transmition,
+                "num_images": 1  # One image per grid, because there is no oscillation at gridscan
             },
         )
 
     def do_collect(self, owner, data_collect_parameters):
-        print("-----------------------------------------")
         if data_collect_parameters["experiment_type"] == "OSC":
             self.flyscan_procedure(owner, data_collect_parameters)
         elif data_collect_parameters["experiment_type"] == "Mesh":
             self.gridscan_procedure(owner, data_collect_parameters)
-
