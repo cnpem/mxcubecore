@@ -1,312 +1,135 @@
 import logging
-import os
-import time
-
-import gevent
-
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.BaseHardwareObjects import HardwareObject
-from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import (
-    AbstractMultiCollect,
-)
-from mxcubecore.TaskUtils import task
+from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import AbstractMultiCollect
 
 
 class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
     def __init__(self, name):
         AbstractMultiCollect.__init__(self)
         HardwareObject.__init__(self, name)
+        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
         self._centring_status = None
         self.ready_event = None
         self.actual_frame_num = 0
 
-    def execute_command(self, command_name, *args, **kwargs):
-        return
-
     def init(self):
-        self.setControlObjects(
-            diffractometer=HWR.beamline.diffractometer,
-            sample_changer=HWR.beamline.sample_changer,
-            lims=HWR.beamline.lims,
-            safety_shutter=HWR.beamline.safety_shutter,
-            machine_current=HWR.beamline.machine_info,
-            cryo_stream=HWR.beamline.cryo,
-            energy=HWR.beamline.energy,
-            resolution=HWR.beamline.resolution,
-            detector_distance=HWR.beamline.detector.distance,
-            transmission=HWR.beamline.transmission,
-            undulators=HWR.beamline.config.undulators,
-            flux=HWR.beamline.flux,
-            detector=HWR.beamline.detector,
-            beam_info=HWR.beamline.beam,
-        )
         self.emit("collectConnected", (True,))
         self.emit("collectReady", (True,))
 
-    @task
-    def loop(self, owner, data_collect_parameters_list):
-        failed_msg = "Data collection failed!"
-        failed = True
-        collections_analyse_params = []
-        self.emit("collectReady", (False,))
-        self.emit("collectStarted", (owner, 1))
-
-        for data_collect_parameters in data_collect_parameters_list:
-            logging.debug("collect parameters = %r", data_collect_parameters)
-            failed = False
-            data_collect_parameters["status"] = "Data collection successful"
-            (
-                osc_id,
-                sample_id,
-                sample_code,
-                sample_location,
-            ) = self.update_oscillations_history(data_collect_parameters)
-            self.emit(
-                "collectOscillationStarted",
-                (
-                    owner,
-                    sample_id,
-                    sample_code,
-                    sample_location,
-                    data_collect_parameters,
-                    osc_id,
-                ),
-            )
-
-            for image in range(
-                data_collect_parameters["oscillation_sequence"][0]["number_of_images"]
-            ):
-                time.sleep(
-                    data_collect_parameters["oscillation_sequence"][0]["exposure_time"]
-                )
-                self.emit("collectImageTaken", image)
-
-            data_collect_parameters["status"] = "Running"
-            data_collect_parameters["status"] = "Data collection successful"
-            self.emit(
-                "collectOscillationFinished",
-                (
-                    owner,
-                    True,
-                    data_collect_parameters["status"],
-                    "12345",
-                    osc_id,
-                    data_collect_parameters,
-                ),
-            )
-
-        self.emit(
-            "collectEnded",
-            owner,
-            not failed,
-            failed_msg if failed else "Data collection successful",
+    def flyscan_procedure(self, owner, data_collect_parameters):
+        data_collect_parameters["status"] = "Data collection successful"
+        file_parameters = data_collect_parameters["fileinfo"]
+        file_name = "%(prefix)s_%(run_number)04d" % file_parameters
+        start = float(
+            data_collect_parameters["oscillation_sequence"][0]["start"]
+        )  # omega start pos
+        step_size = float(data_collect_parameters["oscillation_sequence"][0]["range"])
+        num_of_points = int(
+            data_collect_parameters["oscillation_sequence"][0]["number_of_images"]
         )
-        self.log.info("data collection successful in loop")
-        self.emit("collectReady", (True,))
+        end = start + step_size * num_of_points
+        acquire_time = float(
+            data_collect_parameters["oscillation_sequence"][0]["exposure_time"]
+        )
+        self._bluesky_api.execute_plan(
+            plan_name="flyscan",
+            kwargs={
+                "start": start,
+                "end": end,
+                "file_path": file_parameters["directory"],
+                "file_name": file_name,
+                "angle_increment": step_size,
+                "acquire_time": acquire_time,
+                "num_images": num_of_points,
+                # "wavelength": wavelength,
+                # "detector_distance": detector_distance,
+                # "threshold_energy": threshold_energy,
+                # "filter_transmition": filter_transmition,
+            },
+        )
 
-    @task
-    def data_collection_hook(self, data_collect_parameters):
-        return
+    def get_grid_start_by_axis(self, selected_grid, axis):
+        diff_from_beam = selected_grid["screen_coord"][axis] - selected_grid["beam_pos"][axis]
+        pxpmm = selected_grid["pixels_per_mm"][axis]
+        return (diff_from_beam / pxpmm)
 
-    def do_prepare_oscillation(self, start, end, exptime, npass):
-        self.actual_frame_num = 0
+    def get_grid_start_position(self, selected_grid):
+        diffractometer = HWR.beamline.diffractometer
+        sampx = diffractometer.getObjectByRole("sampx").get_value()
+        samp_y = diffractometer.getObjectByRole("sampy").get_value()
 
-    @task
-    def oscil(self, start, end, exptime, npass):
-        return
+        grid_x = self.get_grid_start_by_axis(selected_grid, 0)
+        grid_y = -1 * self.get_grid_start_by_axis(selected_grid, 1)
 
-    @task
-    def data_collection_cleanup(self):
-        return
+        start_x = sampx - grid_x
+        start_y = samp_y - grid_y
 
-    @task
-    def close_fast_shutter(self):
-        return
+        return start_x, start_y
 
-    @task
-    def open_fast_shutter(self):
-        return
-
-    @task
-    def move_motors(self, motor_position_dict):
-        return
-
-    @task
-    def open_safety_shutter(self):
-        return
-
-    def safety_shutter_opened(self):
-        return
-
-    @task
-    def close_safety_shutter(self):
-        return
-
-    @task
-    def prepare_intensity_monitors(self):
-        return
-
-    def prepare_acquisition(
-        self, take_dark, start, osc_range, exptime, npass, number_of_images, comment=""
-    ):
-        return
-
-    def set_detector_filenames(
-        self, frame_number, start, filename, jpeg_full_path, jpeg_thumbnail_full_path
-    ):
-        return
-
-    def prepare_oscillation(self, start, osc_range, exptime, npass):
-        return (start, start + osc_range)
-
-    def do_oscillation(self, start, end, exptime, shutterless, npass, first_frame):
-        gevent.sleep(exptime)
-
-    def start_acquisition(self, exptime, npass, first_frame):
-        return
-
-    def write_image(self, last_frame):
-        self.actual_frame_num += 1
-        return
-
-    def last_image_saved(self):
-        return self.actual_frame_num
-
-    def stop_acquisition(self):
-        return
-
-    def reset_detector(self):
-        return
-
-    def prepare_input_files(
-        self, files_directory, prefix, run_number, process_directory
-    ):
-        self.actual_frame_num = 0
-        i = 1
-        while True:
-            xds_input_file_dirname = "xds_%s_run%s_%d" % (prefix, run_number, i)
-            xds_directory = os.path.join(process_directory, xds_input_file_dirname)
-
-            if not os.path.exists(xds_directory):
+    def get_grid_scan_data(self):
+        grid_list = HWR.beamline.sample_view.get_grids()
+        selected_grid = None
+        for grid in grid_list:
+            grid_as_dict = grid.as_dict()
+            if grid_as_dict["selected"]:
+                grid_found_msg = "Found selected grid {}".format(grid_as_dict["name"])
+                selected_grid = grid_as_dict
                 break
+            else:
+                print("Ignoring grid {}".format(grid_as_dict["id"]))
 
-            i += 1
+        if selected_grid is None:
+            grid_found_msg = "Found unselected grid {}".format(grid_as_dict["name"])
+            logging.getLogger("HWR").info(grid_found_msg)
+            selected_grid = grid_list[0].as_dict()
+        start_x, start_y = self.get_grid_start_position(selected_grid)
+        width = selected_grid["dx_mm"]
+        height = selected_grid["dy_mm"]
+        steps_x = selected_grid["steps_x"]
+        steps_y = selected_grid["steps_y"]
 
-        mosflm_input_file_dirname = "mosflm_%s_run%s_%d" % (prefix, run_number, i)
-        mosflm_directory = os.path.join(process_directory, mosflm_input_file_dirname)
+        return start_x, start_y, width, height, steps_x, steps_y
 
-        hkl2000_dirname = "hkl2000_%s_run%s_%d" % (prefix, run_number, i)
-        hkl2000_directory = os.path.join(process_directory, hkl2000_dirname)
-
-        self.raw_data_input_file_dir = os.path.join(
-            files_directory, "process", xds_input_file_dirname
+    def gridscan_procedure(self, owner, data_collect_parameters):
+        start_x, start_y, end_x, end_y, step_x, step_y = self.get_grid_scan_data()
+        width = abs(round(end_x - start_x, 6))
+        height = abs(round(end_y - start_y, 6))
+        file_parameters = data_collect_parameters["fileinfo"]
+        file_name = "%(prefix)s_%(run_number)04d" % file_parameters
+        exp_time = float(
+            data_collect_parameters["oscillation_sequence"][0]["exposure_time"]
         )
-        self.mosflm_raw_data_input_file_dir = os.path.join(
-            files_directory, "process", mosflm_input_file_dirname
+        start_angle = float(data_collect_parameters["oscillation_sequence"][0]["start"])
+        angle_increment = float(
+            data_collect_parameters["oscillation_sequence"][0]["range"]
         )
-        self.raw_hkl2000_dir = os.path.join(files_directory, "process", hkl2000_dirname)
+        self._bluesky_api.execute_plan(
+            plan_name="complete_grid_scan",
+            kwargs={
+                "start_x": start_x,
+                "start_y": start_y,
+                "width": width,
+                "height": height,
+                "num_rows": step_x,
+                "num_cols": step_y,
+                "file_path": file_parameters["directory"],
+                "file_name": file_name,
+                "start_angle": start_angle,
+                "angle_increment": angle_increment,
+                "acquire_time": exp_time,
+                "num_images": 1,  # One image per grid, because there is no oscillation at gridscan
+                # "wavelength": wavelength,
+                # "detector_distance": detector_distance,
+                # "threshold_energy": threshold_energy,
+                # "filter_transmition": filter_transmition,
+            },
+        )
 
-        return xds_directory, mosflm_directory, hkl2000_directory
+    def do_collect(self, owner, data_collect_parameters):
+        print("-----------------------------------------")
+        if data_collect_parameters["experiment_type"] == "OSC":
+            self.flyscan_procedure(owner, data_collect_parameters)
+        elif data_collect_parameters["experiment_type"] == "Mesh":
+            self.gridscan_procedure(owner, data_collect_parameters)
 
-    @task
-    def write_input_files(self, collection_id):
-        return
-
-    def get_wavelength(self):
-        return
-
-    def get_undulators_gaps(self):
-        return []
-
-    def get_resolution_at_corner(self):
-        return
-
-    def get_beam_size(self):
-        return None, None
-
-    def get_slit_gaps(self):
-        return None, None
-
-    def get_beam_shape(self):
-        return
-
-    def get_machine_current(self):
-        if self.bl_control.machine_current is not None:
-            return self.bl_control.machine_current.get_current()
-        else:
-            return 0
-
-    def get_machine_message(self):
-        if self.bl_control.machine_current is not None:
-            return self.bl_control.machine_current.get_message()
-        else:
-            return ""
-
-    def get_machine_fill_mode(self):
-        if self.bl_control.machine_current is not None:
-            return self.bl_control.machine_current.get_fill_mode()
-        else:
-            """"""
-
-    def get_cryo_temperature(self):
-        if self.bl_control.cryo_stream is not None:
-            return self.bl_control.cryo_stream.getTemperature()
-
-    def get_current_energy(self):
-        return
-
-    def get_beam_centre(self):
-        return None, None
-
-    def get_beamline_configuration(self, *args):
-        return self.bl_config._asdict()
-
-    def is_connected(self):
-        return True
-
-    def is_ready(self):
-        return True
-
-    def sample_changer_HO(self):
-        return self.bl_control.sample_changer
-
-    def diffractometer(self):
-        return self.bl_control.diffractometer
-
-    def sanity_check(self, collect_params):
-        return
-
-    def set_brick(self, brick):
-        return
-
-    def directory_prefix(self):
-        return self.bl_config.directory_prefix
-
-    def store_image_in_lims(self, frame, first_frame, last_frame):
-        return True
-
-    def get_oscillation(self, oscillation_id):
-        return self.oscillations_history[oscillation_id - 1]
-
-    def sample_accept_centring(self, accepted, centring_status):
-        self.sample_centring_done(accepted, centring_status)
-
-    def set_centring_status(self, centring_status):
-        self._centring_status = centring_status
-
-    def get_oscillations(self, session_id):
-        return []
-
-    def set_helical(self, helical_on):
-        return
-
-    def set_helical_pos(self, helical_oscil_pos):
-        return
-
-    def get_archive_directory(self, directory):
-        archive_dir = os.path.join(directory, "archive")
-        return archive_dir
-
-    @task
-    def generate_image_jpeg(self, filename, jpeg_path, jpeg_thumbnail_path):
-        pass
