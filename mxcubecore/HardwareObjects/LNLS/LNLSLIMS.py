@@ -47,4 +47,4 @@ class LNLSLIMS(ICATLIMS):
         return session_manager
 
     def get_active_lims(self):
-        return self.get_lims_name()
+        return self.get_lims_name()[0]
