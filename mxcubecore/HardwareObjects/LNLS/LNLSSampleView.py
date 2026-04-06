@@ -41,3 +41,6 @@ class LNLSSampleView(SampleView):
         self.user_level_log.info("Initializing automatic sample alignment...")
         self._bluesky_api.execute_plan(plan_name="automatic_alignment")
         self.user_level_log.info("Automatic sample alignment has finished...")
+
+    def get_snapshot(self):
+        return None
