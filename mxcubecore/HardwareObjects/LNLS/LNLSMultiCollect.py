@@ -43,7 +43,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "file_name": file_name,
                 "angle_increment": step_size,
                 "acquire_time": acquire_time,
-                "num_images": num_of_points
+                "num_images": num_of_points,
+                "snapshot_num": self.number_of_snapshots
             },
         )
 
