@@ -126,7 +126,7 @@ class EPICSNStateInputValue(EPICSNState):
     This class is a workaround for devices that exist in a discrete number of states
     but take always the same input when switching between these states.
     Example: a safety shutter with RBVs 0 for open and 1 for closed, but input value
-    must always be 1 for either opening/closing. 
+    must always be 1 for either opening/closing.
 
     YAML Example
     ------------
@@ -150,8 +150,8 @@ class EPICSNStateInputValue(EPICSNState):
 
     def init(self):
         super().init()
-        self.input_value = self.get_property('input_value')
+        self.input_value = self.get_property("input_value")
 
     def _set_value(self, value):
-        input_value = self.input_value
-        super()._set_value(input_value)
+        value = self.input_value
+        super()._set_value(value)

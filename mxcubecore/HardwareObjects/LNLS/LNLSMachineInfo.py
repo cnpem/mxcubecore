@@ -1,8 +1,5 @@
-import time
-
 import gevent
 
-from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractMachineInfo import AbstractMachineInfo
 
 
@@ -65,33 +62,27 @@ class LNLSMachineInfo(AbstractMachineInfo):
 
     def get_message(self) -> str:
         mode_ring = self.get_channel_value(self.MESSAGE_RBV)
-        if mode_ring == 0:
-            return "Users"
-        elif mode_ring == 1:
-            return "Commissioning"
-        elif mode_ring == 2:
-            return "Conditioning"
-        elif mode_ring == 3:
-            return "Injection"
-        elif mode_ring == 4:
-            return "Machine Study"
-        elif mode_ring == 5:
-            return "Maintenance"
-        elif mode_ring == 6:
-            return "Standby"
-        elif mode_ring == 7:
-            return "Shutdown"
-        elif mode_ring == 8:
-            return "MachineStartup"
-        elif mode_ring == 9:
-            return "BLComissioning"
+        if 0 <= mode_ring <= 9:
+            mode_ring = str(mode_ring)
+            values = {
+                "0": "Users",
+                "1": "Commissioning",
+                "2": "Conditioning",
+                "3": "Injection",
+                "4": "Machine Study",
+                "5": "Maintenance",
+                "6": "Standby",
+                "7": "Shutdown",
+                "8": "MachineStartup",
+                "9": "BLComissioning",
+            }
+            return values[mode_ring]
         return " --- "
 
     def get_lifetime(self) -> str:
-        hour = int(self.get_channel_value(self.LIFETIME_RBV)/3600)
+        hour = int(self.get_channel_value(self.LIFETIME_RBV) / 3600)
         minute = int(((hour * 60) % 60))
-        hour_real = f"{hour}:{minute}"
-        return hour_real
+        return f"{hour}:{minute}"
 
     def get_fill_mode(self) -> str:
         return self.get_channel_value(self.FILL_MODE_RBV)
