@@ -121,7 +121,7 @@ class EPICSNStateInterval(EPICSNState):
         super().update_value(enum_value)
 
 
-class EPICSNStateInputValue(EPICSNState):
+class EPICSToggle(EPICSNState):
     """
     This class is a workaround for devices that exist in a discrete number of states
     but take always the same input when switching between these states.
@@ -133,7 +133,7 @@ class EPICSNStateInputValue(EPICSNState):
 
     %YAML 1.2
     ---
-    class: LNLS.EPICS.EPICSNState.EPICSNStateInputValue
+    class: LNLS.EPICS.EPICSNState.EPICSToggle
     epics:
     "MNC:A:PPS01:":
         channels:

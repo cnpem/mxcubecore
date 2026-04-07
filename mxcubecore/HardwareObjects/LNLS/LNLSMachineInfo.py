@@ -45,16 +45,11 @@ class LNLSMachineInfo(AbstractMachineInfo):
 
     def init(self):
         super().init()
-        self._run()
-
-    def _run(self):
         gevent.spawn(self._update_me)
 
     def _update_me(self):
         while True:
             gevent.sleep(5)
-            values = {}
-            values.update(self.get_value())
             self.update_value()
 
     def get_current(self) -> float:
@@ -77,7 +72,7 @@ class LNLSMachineInfo(AbstractMachineInfo):
                 "9": "BLComissioning",
             }
             return values[mode_ring]
-        return " --- "
+        return "UNKNOWN"
 
     def get_lifetime(self) -> str:
         hour = int(self.get_channel_value(self.LIFETIME_RBV) / 3600)
