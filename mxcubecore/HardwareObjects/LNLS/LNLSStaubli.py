@@ -10,6 +10,35 @@ from mxcubecore.queue_entry.base_queue_entry import CENTRING_METHOD
 
 
 class LNLSStaubli(AbstractSampleChanger.SampleChanger):
+    """
+    This class calls the mount and unmount actions and also handles the
+    logic of which sample is mounted, which samples are in the queue, and
+    which samples are accessible from the 'get samples from SC' button.
+
+    YAML Example
+    ------------
+
+    %YAML 1.2
+    ---
+    class: LNLS.LNLSStaubli.LNLSStaubli
+    epics:
+    "MNC:B:ROBCS801:":
+        channels:
+            get_loop:
+                suffix: "GetLoop"
+            puck_id_1:
+                suffix: "PuckID1"
+            puck_id_2:
+                suffix: "PuckID2"
+            puck_id_3:
+                suffix: "PuckID3"
+    "MNC:B:SoftIOC:SP:1:SampPres_RBV":
+        channels:
+            sample_present:
+                suffix : ""
+    configuration: {}
+    """
+
     __TYPE__ = "Sample Changer"
     NO_OF_BASKETS = 3
     NO_OF_SAMPLES_IN_BASKET = 16
