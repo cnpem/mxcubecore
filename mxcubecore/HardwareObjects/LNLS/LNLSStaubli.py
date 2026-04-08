@@ -37,7 +37,6 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
             )
             self._add_component(basket)
         self._init_sc_contents()
-        self.signal_wait_task = None
         AbstractSampleChanger.SampleChanger.init(self)
         self.log_filename = self.get_property("log_filename")
         self.mount_action = Mount()
