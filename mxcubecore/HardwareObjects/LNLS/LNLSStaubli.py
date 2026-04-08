@@ -15,7 +15,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
     NO_OF_SAMPLES_IN_BASKET = 16
 
     def __init__(self, name):
-        super(LNLSStaubli, self).__init__(self.__TYPE__, False, name) #noqa: FBT003
+        super(LNLSStaubli, self).__init__(self.__TYPE__, False, name)  # noqa: FBT003
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
 
     def init(self):
@@ -27,7 +27,9 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
 
         self.sc_channels = self._CommandContainer__channels
 
-        self.no_of_baskets = self.get_property("no_of_baskets", LNLSStaubli.NO_OF_BASKETS)
+        self.no_of_baskets = self.get_property(
+            "no_of_baskets", LNLSStaubli.NO_OF_BASKETS
+        )
 
         self.no_of_samples_in_basket = self.get_property(
             "no_of_samples_in_basket", LNLSStaubli.NO_OF_SAMPLES_IN_BASKET
@@ -51,8 +53,8 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
     def convert_to_sc_value(self, basket, sample):
         return ((int(basket) - 1) * 16) + int(sample)
 
-    def load(self, sample, wait=False): #noqa: FBT002, ARG002
-        self.emit("fsmConditionChanged", "sample_mounting_sample_changer", True) #noqa: FBT003
+    def load(self, sample, wait=False):  # noqa: FBT002, ARG002
+        self.emit("fsmConditionChanged", "sample_mounting_sample_changer", True)  # noqa: FBT003
         previous_sample = self.get_loaded_sample()
         self._set_state(AbstractSampleChanger.SampleChangerState.Loading)
         self._reset_loaded_sample()
@@ -102,22 +104,22 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         logging.getLogger("user_level_log").info("Sample changer: Sample loaded")
         self.emit("progressStop", ())
 
-        self.emit("fsmConditionChanged", "sample_is_loaded", True) #noqa: FBT003
-        self.emit("fsmConditionChanged", "sample_mounting_sample_changer", False) #noqa: FBT003
+        self.emit("fsmConditionChanged", "sample_is_loaded", True)  # noqa: FBT003
+        self.emit("fsmConditionChanged", "sample_mounting_sample_changer", False)  # noqa: FBT003
 
         return self.get_loaded_sample()
 
-    def unload(self, sample_slot=None, wait=None): #noqa: ARG002
+    def unload(self, sample_slot=None, wait=None):  # noqa: ARG002
         logging.getLogger("user_level_log").info("Unloading sample")
         sample = self.get_loaded_sample()
         self._set_state(AbstractSampleChanger.SampleChangerState.Unloading)
         mount_action = Mount()
         mount_action.unmount()
-        sample._set_loaded(False, True) #noqa: SLF001, FBT003
+        sample._set_loaded(False, True)  # noqa: SLF001, FBT003
         self._selected_basket = -1
         self._selected_sample = -1
         self._trigger_loaded_sample_changed_event(self.get_loaded_sample())
-        self.emit("fsmConditionChanged", "sample_is_loaded", False) #noqa: FBT003
+        self.emit("fsmConditionChanged", "sample_is_loaded", False)  # noqa: FBT003
         self._set_state(AbstractSampleChanger.SampleChangerState.Ready)
 
     def index_to_sample_puck(self, index):
@@ -164,7 +166,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
                 self.sc_channels[f"puck_id_{basket_index + 1}"].get_value() != "None"
             )
             scanned = False
-            basket._set_info(present, datamatrix, scanned) #noqa: SLF001
+            basket._set_info(present, datamatrix, scanned)  # noqa: SLF001
 
     def configure_samples(self):
         sample_list = []
@@ -173,25 +175,27 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
                 continue
             for sample_index in range(self.no_of_samples_in_basket):
                 sample_list.extend(
-                    [(
-                        "",
-                        basket_index + 1,
-                        sample_index + 1,
-                        1,
-                        Container.Pin.STD_HOLDERLENGTH,
-                    )]
+                    [
+                        (
+                            "",
+                            basket_index + 1,
+                            sample_index + 1,
+                            1,
+                            Container.Pin.STD_HOLDERLENGTH,
+                        )
+                    ]
                 )
         for spl in sample_list:
             address = Container.Pin.get_sample_address(spl[1], spl[2])
             sample = self.get_component_by_address(address)
             sample_name = self.get_name_from_address(address)
             if sample_name is not None:
-                sample._name = sample_name #noqa: SLF001
+                sample._name = sample_name  # noqa: SLF001
             datamatrix = f"matr{spl[1]}_{spl[2]}"
             present = scanned = loaded = has_been_loaded = False
-            sample._set_info(present, datamatrix, scanned) #noqa: SLF001
-            sample._set_loaded(loaded, has_been_loaded) #noqa: SLF001
-            sample._set_holder_length(spl[4]) #noqa: SLF001
+            sample._set_info(present, datamatrix, scanned)  # noqa: SLF001
+            sample._set_loaded(loaded, has_been_loaded)  # noqa: SLF001
+            sample._set_holder_length(spl[4])  # noqa: SLF001
 
     def _init_sc_contents(self):
         self.configure_baskets()

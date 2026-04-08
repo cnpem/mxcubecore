@@ -41,7 +41,6 @@ class LNLSBeamlineActions(BeamlineActions):
     """
 
 
-
 class SampleChangerAction:
     def __init__(self, movement_option):
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
@@ -49,12 +48,12 @@ class SampleChangerAction:
         self.movement_option = movement_option
 
     def __call__(self, *args, **kwargs):
-        self.sc._set_state(AbstractSampleChanger.SampleChangerState.Moving) #noqa: SLF001
+        self.sc._set_state(AbstractSampleChanger.SampleChangerState.Moving)  # noqa: SLF001
         self._bluesky_api.execute_plan(
             plan_name="run_sample_changer_command",
             kwargs={"movement_option": self.movement_option, **kwargs},
         )
-        self.sc._set_state(AbstractSampleChanger.SampleChangerState.Ready) #noqa: SLF001
+        self.sc._set_state(AbstractSampleChanger.SampleChangerState.Ready)  # noqa: SLF001
         return args
 
 
