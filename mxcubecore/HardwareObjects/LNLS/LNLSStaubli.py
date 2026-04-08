@@ -15,37 +15,32 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
     NO_OF_SAMPLES_IN_BASKET = 16
 
     def __init__(self, name):
-        super(LNLSStaubli, self).__init__(self.__TYPE__, False, name)  # noqa: FBT003
+        scannable = False
+        super().__init__(self.__TYPE__, scannable, name)
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
 
     def init(self):
         self.frontend_application = frontendApplication
         self._selected_sample = -1
         self._selected_basket = -1
-
         self.previous_get_loop_value = 0
-
         self.sc_channels = self._CommandContainer__channels
-
         self.no_of_baskets = self.get_property(
             "no_of_baskets", LNLSStaubli.NO_OF_BASKETS
         )
-
         self.no_of_samples_in_basket = self.get_property(
             "no_of_samples_in_basket", LNLSStaubli.NO_OF_SAMPLES_IN_BASKET
         )
-
         for i in range(self.no_of_baskets):
             basket = Container.Basket(
                 self, i + 1, samples_num=self.no_of_samples_in_basket
             )
             self._add_component(basket)
-
         self._init_sc_contents()
         self.signal_wait_task = None
         AbstractSampleChanger.SampleChanger.init(self)
-
         self.log_filename = self.get_property("log_filename")
+        self.mount_action = Mount()
 
     def get_log_filename(self):
         return self.log_filename
@@ -58,63 +53,46 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         previous_sample = self.get_loaded_sample()
         self._set_state(AbstractSampleChanger.SampleChangerState.Loading)
         self._reset_loaded_sample()
-
         if isinstance(sample, tuple):
             basket, sample = sample
         else:
             basket, sample = sample.split(":")
-
         self._selected_basket = basket = int(basket)
         self._selected_sample = sample = int(sample)
-
         msg = f"Loading sample {basket}:{sample}"
         logging.getLogger("user_level_log").info(
             f"Sample changer: {msg}. Please wait..."
         )
-
         self.emit("progressInit", (msg, 100))
-
         msg = {
             "signal": "loadingSample",
             "location": f"{basket}:{sample}",
             "message": "Please wait, loading sample",
         }
         self.frontend_application.server.emit("sc", msg, namespace="/hwr")
-
         set_loop_value = self.convert_to_sc_value(basket, sample)
-        logging.getLogger("user_level_log").info(
-            f"\nset_loop_value is {set_loop_value}\n"
-        )
-
-        # Simply calling self.mount_action = Mount() at init is not working...
-        mount_action = Mount()
-        mount_action.mount(int(set_loop_value))
+        self.mount_action.mount(int(set_loop_value))
         if HWR.beamline.queue_manager.centring_method == CENTRING_METHOD.LOOP:
-            self._bluesky_api.execute_plan(plan_name="autocentring")
+            self._bluesky_api.execute_plan(plan_name="automatic_alignment")
         self.emit("progressStep", 100)
-
         mounted_sample = self.get_component_by_address(
             Container.Pin.get_sample_address(basket, sample)
         )
         self._set_state(AbstractSampleChanger.SampleChangerState.Ready)
-
         if mounted_sample is not previous_sample:
             self._trigger_loaded_sample_changed_event(mounted_sample)
         self.update_info()
         logging.getLogger("user_level_log").info("Sample changer: Sample loaded")
         self.emit("progressStop", ())
-
         self.emit("fsmConditionChanged", "sample_is_loaded", True)  # noqa: FBT003
         self.emit("fsmConditionChanged", "sample_mounting_sample_changer", False)  # noqa: FBT003
-
         return self.get_loaded_sample()
 
     def unload(self, sample_slot=None, wait=None):  # noqa: ARG002
         logging.getLogger("user_level_log").info("Unloading sample")
         sample = self.get_loaded_sample()
         self._set_state(AbstractSampleChanger.SampleChangerState.Unloading)
-        mount_action = Mount()
-        mount_action.unmount()
+        self.mount_action.unmount()
         sample._set_loaded(False, True)  # noqa: SLF001, FBT003
         self._selected_basket = -1
         self._selected_sample = -1
@@ -123,9 +101,6 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         self._set_state(AbstractSampleChanger.SampleChangerState.Ready)
 
     def index_to_sample_puck(self, index):
-        if not 1 <= index <= 48:
-            msg = "Index must be between 1 and 48"
-            raise ValueError(msg)
         sample = (index - 1) % 16 + 1
         puck = (index - 1) // 16 + 1
         self._selected_basket = puck
@@ -134,7 +109,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
     def get_loaded_sample(self):
         get_loop = int(self.sc_channels["get_loop"].get_value())
         sample_present = self.sc_channels["sample_present"].get_value()
-        if get_loop and sample_present:
+        if get_loop and sample_present and (1 <= get_loop <= 48):
             self.index_to_sample_puck(get_loop)
         else:
             self._selected_basket = -1
@@ -145,8 +120,8 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
             )
         )
         if get_loop != self.previous_get_loop_value:
+            self.previous_get_loop_value = get_loop
             self._trigger_loaded_sample_changed_event(value)
-        self.previous_get_loop_value = get_loop
         return value
 
     def get_name_from_address(self, address):
@@ -154,9 +129,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         name = self.sc_channels[f"puck_id_{puck}"].get_value()
         if name == "None":
             return None
-        if name is not None:
-            name = f"{name}-{address}"
-        return name
+        return f"{name}-{address}"
 
     def configure_baskets(self):
         for basket_index in range(self.no_of_baskets):

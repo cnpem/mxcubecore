@@ -30,7 +30,8 @@ class LNLSBeamlineActions(BeamlineActions):
                 },
                 {
                 "type": "controller",
-                "name": "Dry","command": "HardwareObjects.LNLS.LNLSBeamlineActions.Dry"
+                "name": "Dry",
+                "command": "HardwareObjects.LNLS.LNLSBeamlineActions.Dry"
                 },
                 {
                 "type": "controller",
@@ -44,8 +45,8 @@ class LNLSBeamlineActions(BeamlineActions):
 class SampleChangerAction:
     def __init__(self, movement_option):
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
-        self.sc = HWR.beamline.sample_changer
         self.movement_option = movement_option
+        self.sc = HWR.beamline.get_object_by_role("sample_changer")
 
     def __call__(self, *args, **kwargs):
         self.sc._set_state(AbstractSampleChanger.SampleChangerState.Moving)  # noqa: SLF001
