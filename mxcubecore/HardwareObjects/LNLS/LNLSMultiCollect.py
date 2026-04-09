@@ -55,8 +55,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
     def get_grid_start_position(self, selected_grid):
         diffractometer = HWR.beamline.diffractometer
-        sampx = diffractometer.getObjectByRole("sampx").get_value()
-        samp_y = diffractometer.getObjectByRole("sampy").get_value()
+        sampx = diffractometer.sampx.get_value()
+        samp_y = diffractometer.sampy.get_value()
 
         grid_x = self.get_grid_start_by_axis(selected_grid, 0)
         grid_y = -1 * self.get_grid_start_by_axis(selected_grid, 1)
