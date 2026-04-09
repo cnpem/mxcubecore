@@ -1,6 +1,5 @@
 import logging
-
-from gevent.event import AsyncResult
+import gevent
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.SampleView import SampleView
@@ -11,6 +10,8 @@ class LNLSSampleView(SampleView):
         SampleView.init(self)
         self.user_level_log = logging.getLogger("user_level_log")
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        self.READY_FOR_NEXT_CLICK = gevent.event.Event()
+        self.x, self.y = None, None
 
     def move_to_beam(self, x, y):
         self.user_level_log.info("Moving to beam...")
@@ -25,17 +26,32 @@ class LNLSSampleView(SampleView):
         )
         self.user_level_log.info("Move to beam has finished...")
 
+    def image_clicked(self, x, y):
+        logging.getLogger("user_level_log").info(
+            f"LNLS Centring click at x:{int(x)}, y:{int(y)}"
+        )
+        self.x = x
+        self.y = y
+        self.READY_FOR_NEXT_CLICK.set()
+
     def start_manual_centring(self, nb_click: int = 3):
         self.user_level_log.info("Initializing manual sample alignment...")
+        if self.current_centring_procedure is not None:
+            self.user_level_log.exception("Already centring")
+        self.current_centring_procedure = "Manual"
+        self.emit("centringStarted", ("Manual"))
         for step in range(nb_click):
-            self.user_level_log.info(f"Step {step + 1} of 3...")
-            self.user_clicked_event = AsyncResult()
-            x, y = self.user_clicked_event.get()
-            self._bluesky_api.execute_plan(
-                plan_name="manual_alignment",
-                kwargs={"x_px": x, "y_px": y, "step": step},
-            )
+            self.READY_FOR_NEXT_CLICK.clear()
+            self.READY_FOR_NEXT_CLICK.wait()
+            beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+            if (self.x is not None) and (self.y is not None):
+                self._bluesky_api.execute_plan(
+                    plan_name="manual_alignment",
+                    kwargs={"x_px": beam_pos[0]-self.x, "y_px": self.y-beam_pos[1], "step": step},
+                )
         self.user_level_log.info("Manual sample alignment has finished...")
+        self.centring_done()
+        self.accept_centring()
 
     def start_auto_centring(self):
         self.user_level_log.info("Initializing automatic sample alignment...")
