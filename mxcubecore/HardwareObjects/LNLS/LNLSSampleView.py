@@ -20,7 +20,7 @@ class LNLSSampleView(SampleView):
         self._bluesky_api.execute_plan(
             plan_name="move_to_beam",
             kwargs={
-                "x_px": x - beam_pos[0],
+                "x_px": beam_pos[0] - x,
                 "y_px": y - beam_pos[1],
             },
         )
