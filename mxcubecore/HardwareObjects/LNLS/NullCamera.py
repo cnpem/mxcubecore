@@ -12,13 +12,13 @@ class NullCamera(HardwareObject):
         self._current_stream_size = (0, 0)
 
     def get_width(self) -> int:
-        return 1
+        return 1280
 
     def get_height(self) -> int:
-        return 1
+        return 1024
 
     def get_available_stream_sizes(self):
         return []
 
     def get_stream_size(self):
-        return (1, 1, 1)
+        return (1280, 1024, 1)
