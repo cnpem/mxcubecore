@@ -55,8 +55,14 @@ class LNLSSampleView(SampleView):
 
     def start_auto_centring(self):
         self.user_level_log.info("Initializing automatic sample alignment...")
+        if self.current_centring_procedure is not None:
+            self.user_level_log.exception("Already centring")
+        self.current_centring_procedure = "Automatic"
+        self.emit("centringStarted", ("Automatic"))
         self._bluesky_api.execute_plan(plan_name="automatic_alignment")
         self.user_level_log.info("Automatic sample alignment has finished...")
+        self.centring_done()
+        self.accept_centring()
 
     def get_snapshot(self):
         return None
