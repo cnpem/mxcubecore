@@ -147,7 +147,7 @@ class ResolutionVirtualMotor(EPICSMotor):
 
     %YAML 1.2
     ---
-    class: LNLS.LNLSResolution.ResolutionVirtualMotor
+    class: LNLS.EPICS.EPICSMotor.ResolutionVirtualMotor
     epics:
         "MNC:B:SoftIOC:Resolution":
             channels:
