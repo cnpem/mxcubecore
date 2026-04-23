@@ -154,4 +154,5 @@ class LNLSEnergy(AbstractEnergy, EPICSActuatorBluesky):
     plan_parameter: "energy"
     default_lim
     """
+
     pass
