@@ -14,6 +14,7 @@ class LNLSQueueManager(QueueManager):
     class: LNLS.LNLSQueueManager.LNLSQueueManager
     configuration: {}
     """
+
     def init(self):
         super().init()
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
