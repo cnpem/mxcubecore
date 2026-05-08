@@ -1,0 +1,77 @@
+import os
+import time
+import gevent
+from mxcubecore import HardwareRepository as HWR
+from mxcubecore.HardwareObjects.abstract.AbstractEnergyScan import AbstractEnergyScan
+
+
+class LNLSEnergyScan(AbstractEnergyScan):
+    def __init__(self, name):
+        AbstractEnergyScan.__init__(self, name)
+        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+
+    def init(self):
+        self.ready_event = gevent.event.Event()
+        self.energy_scan_parameters = {}
+
+    def start_energy_scan(
+        self,
+        element,
+        edge,
+        directory,
+        prefix,
+        num_steps,
+        expousure_time
+        session_id=None,
+        blsample_id=None,
+        cpos=None,
+    ):
+        """Do the scan"""
+        if self._egyscan_task and not self._egyscan_task.ready():
+            raise RuntimeError("Scan already started.")
+
+        self.emit("energyScanStarted", ())
+
+        self.energy_scan_parameters["element"] = element
+        self.energy_scan_parameters["edge"] = edge
+        self.energy_scan_parameters["directory"] = directory
+        os.makedirs(directory, exist_ok=True)
+        self.energy_scan_parameters["prefix"] = prefix
+        if session_id is not None:
+            self.energy_scan_parameters["sessionId"] = session_id
+            self.energy_scan_parameters["blSampleId"] = blsample_id
+            self.energy_scan_parameters["startTime"] = time.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+        plan_kwargs = {
+            "element": element,
+            "edge": edge,
+            "file_path": directory,
+            "file_name": prefix,
+            "num_steps": num_steps,
+            "expousure_time": expousure_time
+        }
+
+        self._bluesky_api.execute_plan(
+            plan_name="energy_scan",
+            kwargs=plan_kwargs,
+        )
+
+        self.emit("energyScanFinished", (self.energy_scan_parameters,))
+        self.ready_event.set()
+
+    def do_chooch(self, elt, edge, scan_directory, archive_directory, prefix):
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )

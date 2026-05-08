@@ -73,6 +73,8 @@ class EnergyScanQueueEntry(BaseQueueEntry):
                 energy_scan.edge,
                 energy_scan.path_template.directory,
                 energy_scan.path_template.get_prefix(),
+                energy_scan.number_of_steps,
+                energy_scan.expousure_time,
                 HWR.beamline.session.session_id,
                 sample_lims_id,
                 cpos=energy_scan.centred_position,

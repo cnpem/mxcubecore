@@ -1015,6 +1015,8 @@ class EnergyScan(TaskNode):
         TaskNode.__init__(self)
         self.element_symbol = None
         self.edge = None
+        self.number_of_steps = None
+        self.expousure_time = None
         self.comments = None
         self.set_requires_centring(True)
         self.centred_position = cpos
