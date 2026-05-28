@@ -156,7 +156,7 @@ class EPICSToggle(EPICSNState):
         super()._set_value(self.input_value)
 
 
-class LNLSRestrictedNStateActuator(EPICSRestrictedMovement, EPICSNState):
+class LNLSRestrictedNState(EPICSRestrictedMovement, EPICSNState):
     pass
 
 class LNLSRestrictedNStateInterval(EPICSRestrictedMovement, EPICSNStateInterval):
