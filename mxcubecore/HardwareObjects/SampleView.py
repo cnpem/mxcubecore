@@ -141,13 +141,6 @@ class SampleView(AbstractSampleView):
 
     def get_centred_point_from_coord(self, x, y, return_by_names=None):
         """Get the motor positions form x,y pixel coordinates"""
-        return {
-            "omega": 0,
-            "phiy": 0,
-            "phiz": 0,
-            "sampx": 0,
-            "sampy": 0
-        }
 
         beam_pos_x, beam_pos_y = HWR.beamline.beam.get_beam_position_on_screen()
         diffr = HWR.beamline.diffractometer

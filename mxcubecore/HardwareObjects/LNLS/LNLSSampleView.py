@@ -69,3 +69,12 @@ class LNLSSampleView(SampleView):
 
     def _wait_for_centring_finishes(self):
         return
+
+    def get_centred_point_from_coord(self, x, y, return_by_names=None):
+        return {
+            "omega": 0,
+            "phiy": 0,
+            "phiz": 0,
+            "sampx": 0,
+            "sampy": 0
+        }
