@@ -17,6 +17,7 @@ class LNLSCamera(HardwareObject):
         height: 1024
         scale: 1
     """
+
     def init(self):
         super().init()
         self.stream_hash = ""

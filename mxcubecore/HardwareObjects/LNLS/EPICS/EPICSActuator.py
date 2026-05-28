@@ -158,11 +158,13 @@ class LNLSEnergy(AbstractEnergy, EPICSActuatorBluesky):
 
     pass
 
+
 class EPICSRestrictedMovement:
     """
     This class is meant for devices that should not move while
     the LNLSStaubli is moving.
     """
+
     def init(self):
         super().init()
         self.sc = HWR.beamline.get_object_by_role("sample_changer")

@@ -3,10 +3,12 @@ from mxcubecore.BaseHardwareObjects import HardwareObjectState
 from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 from mxcubecore.HardwareObjects.BeamlineActions import BeamlineActions
 
+
 class LNLSBaseAction:
     """
     Base class for both LNLSBeamlineActions and LNLSSampleChangerAction
     """
+
     def __init__(self):
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
         self.sc = HWR.beamline.get_object_by_role("sample_changer")
@@ -77,6 +79,7 @@ class LNLSBeamlineActions(LNLSBaseAction, BeamlineActions):
                 },
                 ]
     """
+
     def __init__(self, name):
         BeamlineActions.__init__(self, name)
         LNLSBaseAction.__init__(self)

@@ -1,8 +1,8 @@
 import os
 import time
 
-from mxcubecore.HardwareObjects.Session import Session
 from mxcubecore import HardwareRepository as HWR
+from mxcubecore.HardwareObjects.Session import Session
 
 
 class LNLSSession(Session):
