@@ -117,7 +117,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "start_angle": start_angle,
                 "angle_increment": angle_increment,
                 "acquire_time": exp_time,
-                "num_images": 1  # One image per grid, because there is no oscillation at gridscan
+                "num_images": 1  # One image per grid
             },
         )
 
