@@ -52,6 +52,7 @@ class LNLSXRF(HardwareObject):
             "file_name": prefix,
             "acquire_time": integration_time,
             "beam_energy": beam_energy,
+            "new_sample": False
         }
 
         self._bluesky_api.execute_plan(
