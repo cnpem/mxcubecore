@@ -2,6 +2,7 @@ import os
 import time
 
 from mxcubecore.HardwareObjects.Session import Session
+from mxcubecore import HardwareRepository as HWR
 
 
 class LNLSSession(Session):
@@ -19,3 +20,8 @@ class LNLSSession(Session):
             start_time,
         )
         return directory
+
+    def clear_session(self):
+        HWR.beamline.session.session_id = None
+        HWR.beamline.session.proposal_number = None
+        HWR.beamline.session.proposal_id = None

@@ -44,6 +44,7 @@ class LNLSLIMS(ICATLIMS):
             single_session = self.session_manager.sessions[0]
             self.set_active_session_by_id(single_session.session_id)
 
+        self.session_manager.active_session = None
         return session_manager
 
     def get_active_lims(self):
