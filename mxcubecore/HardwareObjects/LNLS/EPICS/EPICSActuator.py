@@ -73,8 +73,6 @@ class EPICSActuator(AbstractActuator):
             )
 
     def abort(self):
-        if self._wait_task is not None:
-            self._wait_task.set()
         self.update_state(self.STATES.READY)
 
 
