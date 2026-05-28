@@ -16,6 +16,7 @@ class LNLSSampleView(SampleView):
         self.READY_FOR_NEXT_CLICK = gevent.event.Event()
         self.x, self.y = None, None
         self.frontend_application = frontendApplication
+        self.waiting_for_click = True
 
     def move_to_beam(self, x, y):
         self.user_level_log.info("Moving to beam...")
@@ -36,7 +37,9 @@ class LNLSSampleView(SampleView):
         )
         self.x = x
         self.y = y
+        #self.user_level_log.info("Antes do set")
         self.READY_FOR_NEXT_CLICK.set()
+        #self.user_level_log.info("Depois do set")
 
     def start_manual_centring(self, nb_click: int = 3):
         self.user_level_log.info("Initializing manual sample alignment...")
@@ -45,14 +48,19 @@ class LNLSSampleView(SampleView):
         self.current_centring_procedure = "Manual"
         self.emit("centringStarted", ("Manual"))
         for step in range(nb_click):
+            #self.user_level_log.info("Antes do clear")
             self.READY_FOR_NEXT_CLICK.clear()
+            #self.user_level_log.info("Antes do wait")
             self.READY_FOR_NEXT_CLICK.wait()
+            #self.user_level_log.info("Depois do wait")
             beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+            #self.waiting_for_click = False
             if (self.x is not None) and (self.y is not None):
                 self._bluesky_api.execute_plan(
                     plan_name="manual_alignment",
                     kwargs={"x_px": beam_pos[0]-self.x, "y_px": self.y-beam_pos[1], "step": step},
                 )
+            #self.waiting_for_click = True
         self.user_level_log.info("Manual sample alignment has finished...")
         self.centring_done()
         self.accept_centring()
@@ -60,7 +68,9 @@ class LNLSSampleView(SampleView):
         self.emit("centringSuccessful", ("Manual", self.get_centring_status()))
         self.shapes.clear()
         self.frontend_application.server.emit("update_shapes", {"shapes": self.shapes}, namespace="/hwr")
-        self.frontend_application.server.emit("sample_centring", CENTRING_METHOD.NONE, namespace="/hwr")
+        self.emit("fsmConditionChanged", "centering_position_accepted", False)
+        #self.frontend_application.server.emit("sample_centring", CENTRING_METHOD.LOOP, namespace="/hwr")
+        #self.frontend_application.server.emit("sample_centring", CENTRING_METHOD.NONE, namespace="/hwr")
 
     def start_auto_centring(self):
         self.user_level_log.info("Initializing automatic sample alignment...")
