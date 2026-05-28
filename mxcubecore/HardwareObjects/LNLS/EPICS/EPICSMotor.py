@@ -4,7 +4,7 @@ from typing import Optional
 import gevent
 
 from mxcubecore.HardwareObjects.abstract.AbstractMotor import AbstractMotor
-from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import EPICSActuator
+from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import EPICSActuator, EPICSRestrictedMovement
 
 
 class EPICSMotor(EPICSActuator, AbstractMotor):
@@ -159,3 +159,7 @@ class ResolutionVirtualMotor(EPICSMotor):
 
     def get_limits_for_wavelength(self, wavelength):
         return self.get_limits()
+
+
+class LNLSRestrictedMotor(EPICSRestrictedMovement, EPICSMotor):
+    pass
