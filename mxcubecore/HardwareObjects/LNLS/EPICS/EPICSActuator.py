@@ -7,6 +7,7 @@ import numpy as np
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
 from mxcubecore.HardwareObjects.abstract.AbstractEnergy import AbstractEnergy
+from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 
 
 class EPICSActuator(AbstractActuator):
@@ -20,6 +21,7 @@ class EPICSActuator(AbstractActuator):
         self.default_timeout = 180
         if not self.unit:
             self.unit = 10**-3
+        self.sc = HWR.beamline.get_object_by_role("sample_changer")
 
     def init(self):
         super().init()
@@ -59,6 +61,8 @@ class EPICSActuator(AbstractActuator):
         self.set_channel_value(self.ACTUATOR_VAL, value)
 
     def set_value(self, value, timeout: float = 0):
+        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+            return
         if not timeout:
             timeout = self.default_timeout
         try:
@@ -115,6 +119,8 @@ class EPICSActuatorBluesky(EPICSActuator):
         self.plan_parameter = self.get_property("plan_parameter")
 
     def _set_value(self, value):
+        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+            return
         self.setpoint = value
         self.update_state(self.STATES.BUSY)
         self._bluesky_api.execute_plan(
