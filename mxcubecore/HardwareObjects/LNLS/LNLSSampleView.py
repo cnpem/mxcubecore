@@ -4,7 +4,7 @@ import gevent
 from mxcubeweb.app import MXCUBEApplication as frontendApplication
 
 from mxcubecore import HardwareRepository as HWR
-from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
+from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
 from mxcubecore.HardwareObjects.SampleView import SampleView
 
 
@@ -19,7 +19,7 @@ class LNLSSampleView(SampleView):
         self.frontend_application = frontendApplication
 
     def move_to_beam(self, x, y):
-        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+        if self.sc.get_state() != SampleChangerState.Ready:
             return
         self.user_level_log.info("Moving to beam...")
 
@@ -42,7 +42,7 @@ class LNLSSampleView(SampleView):
         self.READY_FOR_NEXT_CLICK.set()
 
     def start_manual_centring(self, nb_click: int = 3):
-        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+        if self.sc.get_state() != SampleChangerState.Ready:
             return
         self.user_level_log.info("Initializing manual sample alignment...")
         if self.current_centring_procedure is not None:
