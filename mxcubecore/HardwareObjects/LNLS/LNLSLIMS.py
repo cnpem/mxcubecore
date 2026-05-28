@@ -48,3 +48,6 @@ class LNLSLIMS(ICATLIMS):
 
     def get_active_lims(self):
         return self.get_lims_name()[0]
+
+    def finalize_data_collection(self):
+        return
