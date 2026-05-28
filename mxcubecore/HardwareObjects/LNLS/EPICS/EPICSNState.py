@@ -4,7 +4,7 @@ from mxcubecore.HardwareObjects.abstract.AbstractNState import (
     AbstractNState,
     BaseValueEnum,
 )
-from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import EPICSActuator
+from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import EPICSActuator, EPICSRestrictedMovement
 
 
 class EPICSNState(EPICSActuator, AbstractNState):
@@ -154,3 +154,7 @@ class EPICSToggle(EPICSNState):
 
     def _set_value(self, value):  # noqa: ARG002
         super()._set_value(self.input_value)
+
+
+class LNLSRestrictedNStateActuator(EPICSRestrictedMovement, EPICSNState):
+    pass
