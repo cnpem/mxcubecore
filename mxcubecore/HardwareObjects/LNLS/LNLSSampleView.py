@@ -6,6 +6,7 @@ from mxcubeweb.app import MXCUBEApplication as frontendApplication
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.SampleView import SampleView
 from mxcubecore.model.queue_model_enumerables import CENTRING_METHOD
+from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 
 
 class LNLSSampleView(SampleView):
@@ -13,11 +14,14 @@ class LNLSSampleView(SampleView):
         SampleView.init(self)
         self.user_level_log = logging.getLogger("user_level_log")
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        self.sc = HWR.beamline.get_object_by_role("sample_changer")
         self.READY_FOR_NEXT_CLICK = gevent.event.Event()
         self.x, self.y = None, None
         self.frontend_application = frontendApplication
 
     def move_to_beam(self, x, y):
+        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+            return
         self.user_level_log.info("Moving to beam...")
 
         beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
@@ -39,6 +43,8 @@ class LNLSSampleView(SampleView):
         self.READY_FOR_NEXT_CLICK.set()
 
     def start_manual_centring(self, nb_click: int = 3):
+        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+            return
         self.user_level_log.info("Initializing manual sample alignment...")
         if self.current_centring_procedure is not None:
             self.user_level_log.exception("Already centring")
