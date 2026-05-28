@@ -117,8 +117,6 @@ class EPICSActuatorBluesky(EPICSActuator):
         self.plan_parameter = self.get_property("plan_parameter")
 
     def _set_value(self, value):
-        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
-            return
         self.setpoint = value
         self.update_state(self.STATES.BUSY)
         self._bluesky_api.execute_plan(
