@@ -60,6 +60,7 @@ class LNLSSampleView(SampleView):
         self.emit("centringSuccessful", ("Manual", self.get_centring_status()))
         self.shapes.clear()
         self.frontend_application.server.emit("update_shapes", {"shapes": self.shapes}, namespace="/hwr")
+        self.frontend_application.server.emit("abort_centring", namespace="/hwr")
 
     def start_auto_centring(self):
         self.user_level_log.info("Initializing automatic sample alignment...")
