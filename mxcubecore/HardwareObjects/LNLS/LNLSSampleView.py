@@ -84,6 +84,17 @@ class LNLSSampleView(SampleView):
         self.centring_done()
         self.accept_centring()
 
+    def reject_centring(self):
+        """
+        Because we overwrite start_auto_centring, self.current_centring_procedure
+        is never a spawned gevent. This forces us to overwrite reject_centring
+        form parent class so it doesn't try to run the command
+        self.current_centring_procedure.kill()
+        """
+        self.centring_status["valid"] = False
+        self.emit("centringAccepted", (False, self.get_centring_status()))
+        logging.getLogger("user_level_log").info("Centring cancelled")
+
     def get_snapshot(self):
         return None
 
