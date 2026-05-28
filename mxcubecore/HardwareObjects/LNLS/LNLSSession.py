@@ -24,4 +24,5 @@ class LNLSSession(Session):
     def clear_session(self):
         HWR.beamline.session.session_id = None
         HWR.beamline.session.proposal_number = None
+        HWR.beamline.session.proposal_code = None
         HWR.beamline.session.proposal_id = None

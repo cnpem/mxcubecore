@@ -35,6 +35,7 @@ class LNLSLIMS(ICATLIMS):
 
     def login(self, user_name, token, is_local_host):
         self.is_local_host = is_local_host
+        self.session_manager.active_session = None
         session_manager, lims_username, sessions = super().login(
             user_name, token, self.session_manager
         )
