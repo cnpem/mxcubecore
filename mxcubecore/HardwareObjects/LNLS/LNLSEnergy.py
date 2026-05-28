@@ -9,3 +9,7 @@ class LNLSEnergy(AbstractEnergy):
     def get_value(self):
         value = self.energy_actuator.get_value()
         return value
+
+    def update_value(self):
+        value = self.get_value()
+        self.energy_actuator.update_value(value)
