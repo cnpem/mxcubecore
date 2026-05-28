@@ -25,7 +25,6 @@ class EPICSActuator(AbstractActuator):
         super().init()
         self.update_state(self.STATES.READY)
         self.connect(self.get_channel_object("rbv"), "update", self.update_value)
-        self.sc = HWR.beamline.get_object_by_role("sample_changer")
         self.default_timeout = self.get_property("default_timeout", 180)
         if self.default_timeout is None:
             self.default_timeout = 180

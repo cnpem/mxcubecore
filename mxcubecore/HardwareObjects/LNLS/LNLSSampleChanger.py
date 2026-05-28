@@ -57,7 +57,6 @@ class LNLSSampleChanger(SampleChanger):
         SampleChanger.init(self)
         self.set_sample_changer_state("ready")
         self.log_filename = None
-        self.mount_action = MountAction()
 
     def get_log_filename(self):
         return self.log_filename
@@ -73,72 +72,53 @@ class LNLSSampleChanger(SampleChanger):
 
     def load(self, sample, wait=False):  # noqa: FBT002, ARG002
         self.emit("fsmConditionChanged", "sample_mounting_sample_changer", True)  # noqa: FBT003
-    
-        #previous_sample = self.get_loaded_sample()
+        previous_sample = self.get_loaded_sample()
         self._reset_loaded_sample()
-
         if isinstance(sample, tuple):
             basket, sample = sample
         else:
             basket, sample = sample.split(":")
-
         basket = int(basket)
         sample = int(sample)
-
         self._selected_basket = basket
         self._selected_sample = sample
-
         msg_text = f"Loading sample {basket}:{sample}"
-
         logging.getLogger("user_level_log").info(
             f"Sample changer: {msg_text}. Please wait..."
         )
-
         self.emit("progressInit", (msg_text, 100))
-
         frontend_msg = {
             "signal": "loadingSample",
             "location": f"{basket}:{sample}",
             "message": "Please wait, loading sample",
         }
         self.frontend_application.server.emit("sc", frontend_msg, namespace="/hwr")
-
         sc_value = self.sample_basket_to_index(basket, sample)
-        self.mount_action.mount(int(sc_value))
-
+        mount_action = MountAction()
+        mount_action.mount(int(sc_value))
         self.emit("progressStep", 100)
-
-        #mounted_sample = self.get_component_by_address(
-        #    Container.Pin.get_sample_address(basket, sample)
-        #)
-
-        #if mounted_sample is not previous_sample:
-        #    self._trigger_loaded_sample_changed_event(mounted_sample)
-
+        mounted_sample = self.get_component_by_address(
+            Container.Pin.get_sample_address(basket, sample)
+        )
+        if mounted_sample is not previous_sample:
+            self._trigger_loaded_sample_changed_event(mounted_sample)
         self.update_info()
-
         logging.getLogger("user_level_log").info("Sample changer: Sample loaded")
-
         self.emit("progressStop", ())
         self.emit("fsmConditionChanged", "sample_is_loaded", True)
         self.emit("fsmConditionChanged", "sample_mounting_sample_changer", False)
-
         return self.get_loaded_sample()
 
     def unload(self, sample_slot=None, wait=None):  # noqa: ARG002
         logging.getLogger("user_level_log").info("Unloading sample")
-
-        #sample = self.get_loaded_sample()
-
-        self.mount_action.unmount()
-
-        #sample._set_loaded(False, True)  # noqa: SLF001
-
+        sample = self.get_loaded_sample()
+        mount_action = MountAction()
+        mount_action.unmount()
+        sample._set_loaded(False, True)  # noqa: SLF001
         self._selected_basket = -1
         self._selected_sample = -1
-
-        #new_sample = self.get_loaded_sample()
-        #self._trigger_loaded_sample_changed_event(new_sample)
+        new_sample = self.get_loaded_sample()
+        self._trigger_loaded_sample_changed_event(new_sample)
         self.emit("fsmConditionChanged", "sample_is_loaded", False)
 
     def get_loaded_sample(self):
