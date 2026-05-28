@@ -158,3 +158,6 @@ class EPICSToggle(EPICSNState):
 
 class LNLSRestrictedNStateActuator(EPICSRestrictedMovement, EPICSNState):
     pass
+
+class LNLSRestrictedNStateInterval(EPICSRestrictedMovement, EPICSNStateInterval):
+    pass
