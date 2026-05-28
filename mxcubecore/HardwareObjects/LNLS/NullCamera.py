@@ -1,14 +1,14 @@
 """
 Class for cameras connected by EPICS Area Detector
 """
+
 from mxcubecore.BaseHardwareObjects import HardwareObject
 
 
 class NullCamera(HardwareObject):
-
     def init(self):
         super().init()
-        self.stream_hash = ''
+        self.stream_hash = ""
         self._current_stream_size = (0, 0)
 
     def get_width(self) -> int:

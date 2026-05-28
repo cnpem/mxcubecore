@@ -1,7 +1,7 @@
 from mxcubecore import HardwareRepository as HWR
+from mxcubecore.BaseHardwareObjects import HardwareObjectState
 from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 from mxcubecore.HardwareObjects.BeamlineActions import BeamlineActions
-from mxcubecore.BaseHardwareObjects import HardwareObjectState
 
 
 class LNLSBeamlineActions(BeamlineActions):
@@ -41,6 +41,7 @@ class LNLSBeamlineActions(BeamlineActions):
                 },
                 ]
     """
+
     def __init__(self, name):
         super().__init__(name)
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
@@ -67,7 +68,6 @@ class LNLSBeamlineActions(BeamlineActions):
     def abort_command(self, cmd_name):
         self.sc._set_state(AbstractSampleChanger.SampleChangerState.Ready)  # noqa: SLF001
         self.update_diffractometer_states(self.STATES.READY)
-
 
 
 class SampleChangerAction:

@@ -1,12 +1,11 @@
 import logging
-import gevent
 
+import gevent
 from mxcubeweb.app import MXCUBEApplication as frontendApplication
 
 from mxcubecore import HardwareRepository as HWR
-from mxcubecore.HardwareObjects.SampleView import SampleView
-from mxcubecore.model.queue_model_enumerables import CENTRING_METHOD
 from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
+from mxcubecore.HardwareObjects.SampleView import SampleView
 
 
 class LNLSSampleView(SampleView):
@@ -57,7 +56,11 @@ class LNLSSampleView(SampleView):
             if (self.x is not None) and (self.y is not None):
                 self._bluesky_api.execute_plan(
                     plan_name="manual_alignment",
-                    kwargs={"x_px": beam_pos[0]-self.x, "y_px": self.y-beam_pos[1], "step": step},
+                    kwargs={
+                        "x_px": beam_pos[0] - self.x,
+                        "y_px": self.y - beam_pos[1],
+                        "step": step,
+                    },
                 )
         self.user_level_log.info("Manual sample alignment has finished...")
         self.centring_done()
@@ -65,7 +68,9 @@ class LNLSSampleView(SampleView):
         gevent.sleep(1)
         self.emit("centringSuccessful", ("Manual", self.get_centring_status()))
         self.shapes.clear()
-        self.frontend_application.server.emit("update_shapes", {"shapes": self.shapes}, namespace="/hwr")
+        self.frontend_application.server.emit(
+            "update_shapes", {"shapes": self.shapes}, namespace="/hwr"
+        )
         self.frontend_application.server.emit("abort_centring", namespace="/hwr")
 
     def start_auto_centring(self):
@@ -86,10 +91,4 @@ class LNLSSampleView(SampleView):
         return
 
     def get_centred_point_from_coord(self, x, y, return_by_names=None):
-        return {
-            "omega": 0,
-            "phiy": 0,
-            "phiz": 0,
-            "sampx": 0,
-            "sampy": 0
-        }
+        return {"omega": 0, "phiy": 0, "phiz": 0, "sampx": 0, "sampy": 0}

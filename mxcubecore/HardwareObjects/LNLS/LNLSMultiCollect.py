@@ -1,7 +1,10 @@
 import logging
+
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.BaseHardwareObjects import HardwareObject
-from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import AbstractMultiCollect
+from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import (
+    AbstractMultiCollect,
+)
 
 
 class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
@@ -44,14 +47,16 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "angle_increment": step_size,
                 "acquire_time": acquire_time,
                 "num_images": num_of_points,
-                "snapshot_num": self.number_of_snapshots
+                "snapshot_num": self.number_of_snapshots,
             },
         )
 
     def get_grid_start_by_axis(self, selected_grid, axis):
-        diff_from_beam = selected_grid["screen_coord"][axis] - selected_grid["beam_pos"][axis]
+        diff_from_beam = (
+            selected_grid["screen_coord"][axis] - selected_grid["beam_pos"][axis]
+        )
         pxpmm = selected_grid["pixels_per_mm"][axis]
-        return (diff_from_beam / pxpmm)
+        return diff_from_beam / pxpmm
 
     def get_grid_start_position(self, selected_grid):
         diffractometer = HWR.beamline.diffractometer
@@ -117,7 +122,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "start_angle": start_angle,
                 "angle_increment": angle_increment,
                 "acquire_time": exp_time,
-                "num_images": 1  # One image per grid
+                "num_images": 1,  # One image per grid
             },
         )
 

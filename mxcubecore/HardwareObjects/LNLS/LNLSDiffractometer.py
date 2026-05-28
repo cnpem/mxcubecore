@@ -17,8 +17,8 @@ class LNLSDiffractometer(AbstractDiffractometer):
         current_zoom = zoom_enum.name
         mm_per_pixel_x = self.zoom.get_property("mm_per_pixel_x")[current_zoom]
         mm_per_pixel_y = self.zoom.get_property("mm_per_pixel_y")[current_zoom]
-        pixel_per_mm_x = round(1/mm_per_pixel_x, 6)
-        pixel_per_mm_y = round(1/mm_per_pixel_y, 6)
+        pixel_per_mm_x = round(1 / mm_per_pixel_x, 6)
+        pixel_per_mm_y = round(1 / mm_per_pixel_y, 6)
         return (pixel_per_mm_x, pixel_per_mm_y)
 
     def save_centring_positions(self):

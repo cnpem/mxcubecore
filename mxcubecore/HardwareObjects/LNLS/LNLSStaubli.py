@@ -6,7 +6,6 @@ from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 from mxcubecore.HardwareObjects.abstract.sample_changer import Container
 from mxcubecore.HardwareObjects.LNLS.LNLSBeamlineActions import Mount
-from mxcubecore.queue_entry.base_queue_entry import CENTRING_METHOD
 
 
 class LNLSStaubli(AbstractSampleChanger.SampleChanger):
