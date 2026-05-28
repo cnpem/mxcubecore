@@ -1,6 +1,6 @@
 import time
-
 import gevent
+import os
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.BaseHardwareObjects import HardwareObject
@@ -39,17 +39,13 @@ class LNLSXRF(HardwareObject):
         cpos,
     ):
         beam_energy = self.energy.get_value()
-        print("integration_time: ", integration_time)
-        print("data_dir: ", data_dir)
-        print("prefix: ", prefix)
-        print("beam_energy: ", beam_energy)
 
-        # proc_dir = data_dir.replace('/data/', '/proc/') + '/xrfproc_{}'.format(prefix)
-        # try:
-        #    os.makedirs(data_dir, exist_ok=True)
-        #    os.makedirs(proc_dir, exist_ok=True)
-        # except OSError as e:
-        #    logging.getLogger("HWR").info(f"error creating XRF directories: e")
+        proc_dir = data_dir.replace('/data/', '/proc/') + '/xrfproc_{}'.format(prefix)
+        try:
+           os.makedirs(data_dir, exist_ok=True)
+           os.makedirs(proc_dir, exist_ok=True)
+        except OSError as e:
+           logging.getLogger("HWR").info(f"error creating XRF directories: e")
 
         plan_kwargs = {
             "file_path": data_dir,
@@ -58,13 +54,10 @@ class LNLSXRF(HardwareObject):
             "beam_energy": beam_energy,
         }
 
-        print("plan_params: ", plan_kwargs)
+        self._bluesky_api.execute_plan(
+           plan_name="xrf",
+           kwargs=plan_kwargs,
+        )
 
-        # self._bluesky_api.execute_plan(
-        #    plan_name="xrf",
-        #    kwargs=plan_kwargs,
-        # )
-
-        time.sleep(3)
         self._ready_event.set()
         return
