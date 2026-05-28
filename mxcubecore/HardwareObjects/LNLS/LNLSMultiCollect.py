@@ -75,11 +75,24 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             },
         )
 
+    def get_pxpmm(self):
+        diffractometer = HWR.beamline.diffractometer
+        zoom_enum = diffractometer.zoom.get_value()
+        current_zoom = zoom_enum.name
+        mm_per_pixel_x = diffractometer.zoom.get_property("mm_per_pixel_x")[current_zoom]
+        mm_per_pixel_y = diffractometer.zoom.get_property("mm_per_pixel_y")[current_zoom]
+        pixel_per_mm_x = round(1 / mm_per_pixel_x, 6)
+        pixel_per_mm_y = round(1 / mm_per_pixel_y, 6)
+        return [pixel_per_mm_x, pixel_per_mm_y]
+
     def get_grid_start_by_axis(self, selected_grid, axis):
         diff_from_beam = (
             selected_grid["screen_coord"][axis] - selected_grid["beam_pos"][axis]
         )
-        pxpmm = selected_grid["pixels_per_mm"][axis]
+        pxpmm = self.get_pxpmm()[axis]
+        print("pxpmm from grid dict: ", selected_grid["pixels_per_mm"][axis])
+        print("pxpmm from diff: ", pxpmm)
+        print("diff_from_beam:", diff_from_beam)
         return diff_from_beam / pxpmm
 
     def get_grid_start_position(self, selected_grid):
@@ -90,8 +103,12 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         grid_x = self.get_grid_start_by_axis(selected_grid, 0)
         grid_y = -1 * self.get_grid_start_by_axis(selected_grid, 1)
 
-        start_x = sampx - grid_x
-        start_y = samp_y - grid_y
+        print("grid_x: ", grid_x)
+        print("grid_y: ", grid_y)
+        print("sampx: ", sampx)
+        print("samp_y: ", samp_y)
+        start_x = sampx + grid_x
+        start_y = samp_y + grid_y
 
         return start_x, start_y
 
@@ -111,18 +128,30 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             grid_found_msg = "Found unselected grid {}".format(grid_as_dict["name"])
             logging.getLogger("HWR").info(grid_found_msg)
             selected_grid = grid_list[0].as_dict()
+
+        print("\n")
+        print(selected_grid)
         start_x, start_y = self.get_grid_start_position(selected_grid)
         width = selected_grid["dx_mm"]
         height = selected_grid["dy_mm"]
         steps_x = selected_grid["steps_x"]
         steps_y = selected_grid["steps_y"]
 
+        print("\n")
+        print("start_x: ", start_x)
+        print("start_y: ", start_y)
+        print("width (end_x): ", width)
+        print("height (end_y): ", height)
+        print("steps_x: ", steps_x)
+        print("steps_y: ", steps_y)
+        print("\n")
+
         return start_x, start_y, width, height, steps_x, steps_y
 
     def gridscan_procedure(self, owner, data_collect_parameters):
-        start_x, start_y, end_x, end_y, step_x, step_y = self.get_grid_scan_data()
-        width = abs(round(end_x - start_x, 6))
-        height = abs(round(end_y - start_y, 6))
+        start_x, start_y, width, height, steps_x, steps_y = self.get_grid_scan_data()
+        print("final width:", width)
+        print("final height:", height)
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
         exp_time = float(
@@ -139,14 +168,13 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "start_y": start_y,
                 "width": width,
                 "height": height,
-                "num_rows": step_x,
-                "num_cols": step_y,
+                "num_rows": steps_x,
+                "num_cols": steps_y,
                 "file_path": file_parameters["directory"],
                 "file_name": file_name,
                 "start_angle": start_angle,
                 "angle_increment": angle_increment,
-                "acquire_time": exp_time,
-                "num_images": 1,  # One image per grid
+                "acquire_time": exp_time
             },
         )
 
