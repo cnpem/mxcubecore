@@ -1,8 +1,11 @@
 import logging
 import gevent
 
+from mxcubeweb.app import MXCUBEApplication as frontendApplication
+
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.SampleView import SampleView
+from mxcubecore.model.queue_model_enumerables import CENTRING_METHOD
 
 
 class LNLSSampleView(SampleView):
@@ -12,6 +15,7 @@ class LNLSSampleView(SampleView):
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
         self.READY_FOR_NEXT_CLICK = gevent.event.Event()
         self.x, self.y = None, None
+        self.frontend_application = frontendApplication
 
     def move_to_beam(self, x, y):
         self.user_level_log.info("Moving to beam...")
@@ -52,6 +56,11 @@ class LNLSSampleView(SampleView):
         self.user_level_log.info("Manual sample alignment has finished...")
         self.centring_done()
         self.accept_centring()
+        gevent.sleep(5)
+        self.emit("centringSuccessful", ("Manual", self.get_centring_status()))
+        self.shapes.clear()
+        self.frontend_application.server.emit("update_shapes", {"shapes": self.shapes}, namespace="/hwr")
+        self.frontend_application.server.emit("sample_centring", CENTRING_METHOD.NONE, namespace="/hwr")
 
     def start_auto_centring(self):
         self.user_level_log.info("Initializing automatic sample alignment...")
