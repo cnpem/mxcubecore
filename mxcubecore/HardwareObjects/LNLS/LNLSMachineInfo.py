@@ -55,7 +55,7 @@ class LNLSMachineInfo(AbstractMachineInfo):
             mode_ring = self.get_channel_value("message")
             if 0 <= mode_ring <= 9:
                 mode_ring = str(mode_ring)
-                    values = {
+                values = {
                     "0": "Users",
                     "1": "Commissioning",
                     "2": "Conditioning",
