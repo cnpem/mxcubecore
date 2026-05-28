@@ -70,9 +70,12 @@ class LNLSMachineInfo(AbstractMachineInfo):
         return "UNKNOWN"
 
     def get_lifetime(self) -> str:
-        hour = int(self.get_channel_value("lifetime") / 3600)
-        minute = int(((hour * 60) % 60))
-        return f"{hour}:{minute}"
+        try:
+            hour = int(self.get_channel_value("lifetime") / 3600)
+            minute = int(((hour * 60) % 60))
+            return f"{hour}:{minute}"
+        except TypeError:
+            return "00:00"
 
     def get_fill_mode(self) -> str:
         return self.get_channel_value("fill_mode")
