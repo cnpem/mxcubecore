@@ -43,7 +43,7 @@ class EPICSActuator(AbstractActuator):
                         self._ready_event.set()
                     time.sleep(0.15)
         except TimeoutError:
-            pvname = self.get_channel_object("").command.pv_name
+            pvname = self.get_channel_object("rbv").command.pv_name
             self.print_log(
                 level="error",
                 msg=f"{pvname} motion has timed out.",
