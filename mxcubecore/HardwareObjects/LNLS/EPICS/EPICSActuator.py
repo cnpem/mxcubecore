@@ -61,8 +61,6 @@ class EPICSActuator(AbstractActuator):
         self.set_channel_value(self.ACTUATOR_VAL, value)
 
     def set_value(self, value, timeout: float = 0):
-        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
-            return
         if not timeout:
             timeout = self.default_timeout
         try:
@@ -160,3 +158,19 @@ class LNLSEnergy(AbstractEnergy, EPICSActuatorBluesky):
     """
 
     pass
+
+
+class LNLSRestrictedActuator(EPICSActuator):
+    """
+    This class is meant for devices that should not move while
+    the LNLSStaubli is moving.
+    """
+
+    def init(self):
+        super().init()
+        self.sc = HWR.beamline.get_object_by_role("sample_changer")
+
+    def set_value(self, value, timeout: float = 0):
+        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+            return
+        super().set_value(value, timeout)
