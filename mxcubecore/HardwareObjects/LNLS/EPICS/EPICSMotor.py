@@ -163,3 +163,6 @@ class ResolutionVirtualMotor(EPICSMotor):
 
 class LNLSRestrictedMotor(EPICSRestrictedMovement, EPICSMotor):
     pass
+
+class LNLSRestrictedMotorDetachable(EPICSRestrictedMovement, EPICSMotorDetachable):
+    pass
