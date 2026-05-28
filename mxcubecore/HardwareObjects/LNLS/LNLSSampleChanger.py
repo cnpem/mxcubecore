@@ -190,7 +190,7 @@ class LNLSSampleChanger(SampleChanger):
             present = (
                 self.sc_channels[f"puck_id_{idx + 1}"].get_value() != "None"
             )
-            basket._set_info(present, datamatrix=None, scanned=False)  # noqa: SLF001
+            basket._set_info(present, None, False)  # noqa: SLF001
 
     def get_name_from_address(self, address):
         puck = address.split(":")[0]
