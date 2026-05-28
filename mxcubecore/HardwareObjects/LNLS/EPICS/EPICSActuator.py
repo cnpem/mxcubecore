@@ -21,12 +21,12 @@ class EPICSActuator(AbstractActuator):
         self.default_timeout = 180
         if not self.unit:
             self.unit = 10**-3
-        self.sc = HWR.beamline.get_object_by_role("sample_changer")
 
     def init(self):
         super().init()
         self.update_state(self.STATES.READY)
         self.connect(self.get_channel_object("rbv"), "update", self.update_value)
+        self.sc = HWR.beamline.get_object_by_role("sample_changer")
 
     def hasnt_arrived(self, setpoint):
         readback = self.get_value()
