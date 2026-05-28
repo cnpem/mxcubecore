@@ -202,6 +202,15 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         sequence_id = int(self.mx_collect_channels["detector_sequence_id"].get_value()) + 2
         return sequence_id
 
+    def get_file_abs_path(self, data_collect_parameters):
+        sequence_id = self.get_detector_sequence_id()
+        prefix = data_collect_parameters['fileinfo']['prefix']
+        file_name = f"{prefix}_{cb}_{sequence_id}_master.h5"
+        file_path = data_collect_parameters["fileinfo"]['directory']
+        file_abs_path = f"{file_path}/{file_name}"
+        file_abs_path = file_abs_path.replace("//", "/")
+        return file_abs_path
+
     def perform_xlsx_request(self, data_collect_parameters):
         try:
             wl = round(self.wavelength.get_value(), 6)
@@ -209,12 +218,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             bc = round(self.machine_info.get_current(), 6)
             cb = int(data_collect_parameters["fileinfo"]["run_number"])
             cb = f"{cb:04d}"
-            sequence_id = self.get_detector_sequence_id()
-            prefix = data_collect_parameters['fileinfo']['prefix']
-            file_name = f"{prefix}_{cb}_{sequence_id}_master.h5"
-            file_path = data_collect_parameters["fileinfo"]['directory']
-            file_abs_path = f"{file_path}/{file_name}"
-            file_abs_path = file_abs_path.replace("//", "/")
+            file_abs_path = self.get_file_abs_path(data_collect_parameters)
             logging.getLogger("HWR").info(f"filename is {file_abs_path}")
             timeout_seconds = 3
             dataFromMxcube = data_collect_parameters
@@ -234,11 +238,24 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").info(f"Error trying to send info: {e}")
             logging.getLogger("HWR").info("Collection will still happen")
 
+    def notify_adxv_server(self, file_abs_path):
+        try:
+            timeout_seconds = 3
+            url = 'http://10.31.74.56:5005/open'
+            payload = {"path": file_abs_path}
+            response = requests.post(url, json=payload, timeout=timeout_seconds)
+        except requests.exceptions.Timeout:
+            logging.getLogger("HWR").info("adxv server notification timed out (collection will still happen)")
+        except Exception as e:
+            logging.getLogger("HWR").info(f"Error trying to notify adxv server: {e}")
+
     def do_collect(self, owner, data_collect_parameters):
         #self.perform_xlsx_request(data_collect_parameters)
         experiment_type = data_collect_parameters["experiment_type"]
         if experiment_type == "OSC":
+            file_abs_path = self.get_file_abs_path(data_collect_parameters)
             self.flyscan_procedure(owner, data_collect_parameters)
+            self.notify_adxv_server(file_abs_path)
         elif experiment_type == "Mesh":
             self.gridscan_procedure(owner, data_collect_parameters)
         elif experiment_type == "Helical":
