@@ -97,11 +97,13 @@ class SampleChangerAction:
     def __call__(self, *args, **kwargs):
         self.update_diffractometer_states(self.STATES.OFF)
         self.sc._set_state(AbstractSampleChanger.SampleChangerState.Moving)  # noqa: SLF001
+        self.sc.current_state = AbstractSampleChanger.SampleChangerState.Moving
         self._bluesky_api.execute_plan(
             plan_name="run_sample_changer_command",
             kwargs={"movement_option": self.movement_option, **kwargs},
         )
         self.sc._set_state(AbstractSampleChanger.SampleChangerState.Ready)  # noqa: SLF001
+        self.sc.current_state = AbstractSampleChanger.SampleChangerState.Ready
         self.update_diffractometer_states(self.STATES.READY)
         return args
 
