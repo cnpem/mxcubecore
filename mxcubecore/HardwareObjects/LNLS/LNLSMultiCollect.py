@@ -74,6 +74,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "acquire_time": acquire_time,
                 "num_images": num_of_points,
                 "snapshot_num": self.number_of_snapshots,
+                "debug": True
             },
         )
 
