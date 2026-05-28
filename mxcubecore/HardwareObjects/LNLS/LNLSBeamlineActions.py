@@ -81,6 +81,7 @@ class LNLSBeamlineActions(LNLSBaseAction, BeamlineActions):
         LNLSBaseAction.__init__(self)
 
     def abort_command(self, cmd_name):
+        self._bluesky_api.abort()
         self.change_robot_state(self.ROBOT_READY, self.STATES.READY)
 
 
