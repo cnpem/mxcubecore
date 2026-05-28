@@ -150,6 +150,16 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             },
         )
 
+    def helical_scan_procedure(self, owner, data_collect_parameters):
+        cplist = []
+        points = HWR.beamline.sample_view.get_points()
+        for point in points:
+            print(dir(point))
+            cp = point.get_centred_positions()[0].as_dict()
+            cplist.append(cp)
+        logging.getLogger("HWR").info(f"\n{cplist}\n")
+        logging.getLogger("HWR").info(f"\n{data_collect_parameters}\n")
+
     def get_detector_sequence_id(self):
         sequence_id = int(self.mx_collect_channels["detector_sequence_id"].get_value()) + 2
         return sequence_id
@@ -187,8 +197,11 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").info("Collection will still happen")
 
     def do_collect(self, owner, data_collect_parameters):
-        self.perform_xlsx_request(data_collect_parameters)
-        if data_collect_parameters["experiment_type"] == "OSC":
+        #self.perform_xlsx_request(data_collect_parameters)
+        experiment_type = data_collect_parameters["experiment_type"]
+        if experiment_type == "OSC":
             self.flyscan_procedure(owner, data_collect_parameters)
-        elif data_collect_parameters["experiment_type"] == "Mesh":
+        elif experiment_type == "Mesh":
             self.gridscan_procedure(owner, data_collect_parameters)
+        elif experiment_type == "Helical":
+            self.helical_scan_procedure(owner, data_collect_parameters)
