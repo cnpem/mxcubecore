@@ -67,6 +67,7 @@ class LNLSBeamlineActions(BeamlineActions):
 
     def abort_command(self, cmd_name):
         self.sc._set_state(AbstractSampleChanger.SampleChangerState.Ready)  # noqa: SLF001
+        self.sc.current_state = AbstractSampleChanger.SampleChangerState.Ready
         self.update_diffractometer_states(self.STATES.READY)
 
 
