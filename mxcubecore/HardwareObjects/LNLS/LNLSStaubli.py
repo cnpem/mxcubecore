@@ -47,6 +47,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         scannable = False
         super().__init__(self.__TYPE__, scannable, name)
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        self.current_state = AbstractSampleChanger.SampleChangerState.Ready
 
     def init(self):
         self.frontend_application = frontendApplication
@@ -80,6 +81,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         self.emit("fsmConditionChanged", "sample_mounting_sample_changer", True)  # noqa: FBT003
         previous_sample = self.get_loaded_sample()
         self._set_state(AbstractSampleChanger.SampleChangerState.Loading)
+        self.current_state = AbstractSampleChanger.SampleChangerState.Loading
         self._reset_loaded_sample()
         if isinstance(sample, tuple):
             basket, sample = sample
@@ -105,6 +107,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
             Container.Pin.get_sample_address(basket, sample)
         )
         self._set_state(AbstractSampleChanger.SampleChangerState.Ready)
+        self.current_state = AbstractSampleChanger.SampleChangerState.Ready
         if mounted_sample is not previous_sample:
             self._trigger_loaded_sample_changed_event(mounted_sample)
         self.update_info()
@@ -118,6 +121,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         logging.getLogger("user_level_log").info("Unloading sample")
         sample = self.get_loaded_sample()
         self._set_state(AbstractSampleChanger.SampleChangerState.Unloading)
+        self.current_state = AbstractSampleChanger.SampleChangerState.Unloading
         self.mount_action.unmount()
         sample._set_loaded(False, True)  # noqa: SLF001, FBT003
         self._selected_basket = -1
@@ -125,6 +129,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         self._trigger_loaded_sample_changed_event(self.get_loaded_sample())
         self.emit("fsmConditionChanged", "sample_is_loaded", False)  # noqa: FBT003
         self._set_state(AbstractSampleChanger.SampleChangerState.Ready)
+        self.current_state = AbstractSampleChanger.SampleChangerState.Ready
 
     def index_to_sample_puck(self, index):
         sample = (index - 1) % 16 + 1
@@ -200,6 +205,7 @@ class LNLSStaubli(AbstractSampleChanger.SampleChanger):
         self.configure_baskets()
         self.configure_samples()
         self._set_state(AbstractSampleChanger.SampleChangerState.Ready)
+        self.current_state = AbstractSampleChanger.SampleChangerState.Ready
 
     def get_sample_list(self):
         self.configure_baskets()
