@@ -1,4 +1,5 @@
 import logging
+import requests
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.BaseHardwareObjects import HardwareObject
@@ -8,10 +9,32 @@ from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import (
 
 
 class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
+    """
+    Class for data collection at LNLS.
+
+    YAML Example
+    ------------
+
+    %YAML 1.2
+    ---
+    class: LNLS.LNLSMultiCollect.LNLSMultiCollect
+    epics:
+        "MNC:B:PILATUS4_4M:cam1:":
+            channels:
+                detector_sequence_id:
+                    suffix: "SequenceId"
+    configuration:
+        auto_processing:
+            program: []
+    """
+
     def __init__(self, name):
         AbstractMultiCollect.__init__(self)
         HardwareObject.__init__(self, name)
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        self.wavelength = HWR.beamline.get_object_by_role("wavelength")
+        self.machine_info = HWR.beamline.get_object_by_role("machine_info")
+        self.detector_distance = HWR.beamline.get_object_by_role("detector_distance")
         self._centring_status = None
         self.ready_event = None
         self.actual_frame_num = 0
@@ -21,6 +44,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
     def init(self):
         self.emit("collectConnected", (True,))
         self.emit("collectReady", (True,))
+        self.mx_collect_channels = self._CommandContainer__channels
 
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
@@ -126,7 +150,44 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             },
         )
 
+    def get_detector_sequence_id(self):
+        sequence_id = int(self.mx_collect_channels["detector_sequence_id"].get_value()) + 2
+        return sequence_id
+
+    def perform_xlsx_request(self, data_collect_parameters):
+        try:
+            wl = round(self.wavelength.get_value(), 6)
+            dd = round(self.detector_distance.get_value(), 6)
+            bc = round(self.machine_info.get_current(), 6)
+            cb = int(data_collect_parameters["fileinfo"]["run_number"])
+            cb = f"{cb:04d}"
+            sequence_id = self.get_detector_sequence_id()
+            prefix = data_collect_parameters['fileinfo']['prefix']
+            file_name = f"{prefix}_{cb}_{sequence_id}_master.h5"
+            file_path = data_collect_parameters["fileinfo"]['directory']
+            file_abs_path = f"{file_path}/{file_name}"
+            file_abs_path = file_abs_path.replace("//", "/")
+            logging.getLogger("HWR").info(f"filename is {file_abs_path}")
+            timeout_seconds = 3
+            dataFromMxcube = data_collect_parameters
+            additionalData = {"Collection Batch": cb,
+                            "Wavelength": wl, "Detector distance (mm)": dd,
+                            "Electric Current (mA)": bc, "Loop image": "", "Absolute Path": file_abs_path}
+            proposalId = data_collect_parameters["fileinfo"]["directory"].split('/proposals/')[1].split('/')[0]
+            url = 'http://10.39.50.105:5000/turn-mxcube-data-in-dict-to-proposal-xlsx'
+            payload = {"proposalId": proposalId, "dataFromMxcube": dataFromMxcube, "additionalData": additionalData}
+            response = requests.post(url, json=payload, timeout=timeout_seconds)
+            logging.getLogger("HWR").info(str(response.status_code))
+            logging.getLogger("HWR").info(str(response.text))
+            logging.getLogger("HWR").info(str(response.json()))
+        except requests.exceptions.Timeout:
+            logging.getLogger("HWR").info("XLSX data saving timed out (collection will still happen)")
+        except Exception as e:
+            logging.getLogger("HWR").info(f"Error trying to send info: {e}")
+            logging.getLogger("HWR").info("Collection will still happen")
+
     def do_collect(self, owner, data_collect_parameters):
+        self.perform_xlsx_request(data_collect_parameters)
         if data_collect_parameters["experiment_type"] == "OSC":
             self.flyscan_procedure(owner, data_collect_parameters)
         elif data_collect_parameters["experiment_type"] == "Mesh":
