@@ -4,6 +4,9 @@ from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 from mxcubecore.HardwareObjects.BeamlineActions import BeamlineActions
 
 class LNLSBaseAction:
+    """
+    Base class for both LNLSBeamlineActions and LNLSSampleChangerAction
+    """
     def __init__(self):
         self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
         self.sc = HWR.beamline.get_object_by_role("sample_changer")
@@ -13,12 +16,11 @@ class LNLSBaseAction:
         self.ROBOT_MOVING = AbstractSampleChanger.SampleChangerState.Moving
 
     def update_diffractometer_states(self, state_value):
+        """
+        Turn off all motors while robot is moving
+        Make them ready again if robot is ready
+        """
         d = self.diffractometer
-
-        d.backlight.update_state(state_value)
-        d.backlightswitch.update_state(state_value)
-        d.frontlight.update_state(state_value)
-        d.frontlightswitch.update_state(state_value)
 
         if not d.kappa.check_is_absent():
             d.kappa.update_state(state_value)
@@ -34,8 +36,7 @@ class LNLSBaseAction:
         d.sampz.update_state(state_value)
 
     def change_robot_state(self, robot_state, motor_state):
-        self.sc._set_state(robot_state)  # noqa
-        self.sc.current_state = robot_state
+        self.sc._set_state(robot_state)
         self.update_diffractometer_states(motor_state)
 
 
@@ -81,16 +82,27 @@ class LNLSBeamlineActions(LNLSBaseAction, BeamlineActions):
         LNLSBaseAction.__init__(self)
 
     def abort_command(self, cmd_name):
+        """
+        For the cases of Dry, Home and Soak, if robot
+        movement gets aborted, call the bluesky API and
+        allow motor movement after.
+        There is no abort option for mount/unmount in the UI.
+        """
         self._bluesky_api.abort()
         self.change_robot_state(self.ROBOT_READY, self.STATES.READY)
 
 
-class SampleChangerAction(LNLSBaseAction):
+class LNLSSampleChangerAction(LNLSBaseAction):
     def __init__(self, movement_option):
         super().__init__()
         self.movement_option = movement_option
 
     def __call__(self, *args, **kwargs):
+        """
+        Turn off all motors while robot is moving
+        Wait for bluesky plan to end
+        Make motors ready when bluesky plan finishes
+        """
         self.change_robot_state(self.ROBOT_MOVING, self.STATES.OFF)
         self._bluesky_api.execute_plan(
             plan_name="run_sample_changer_command",
@@ -100,22 +112,22 @@ class SampleChangerAction(LNLSBaseAction):
         return args
 
 
-class Soak(SampleChangerAction):
+class Soak(LNLSSampleChangerAction):
     def __init__(self):
         super().__init__("soak")
 
 
-class Home(SampleChangerAction):
+class Home(LNLSSampleChangerAction):
     def __init__(self):
         super().__init__("home")
 
 
-class Dry(SampleChangerAction):
+class Dry(LNLSSampleChangerAction):
     def __init__(self):
         super().__init__("dry")
 
 
-class Mount(SampleChangerAction):
+class MountAction(LNLSSampleChangerAction):
     def __init__(self):
         super().__init__("mount")
 

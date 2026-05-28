@@ -7,7 +7,7 @@ import numpy as np
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractActuator import AbstractActuator
 from mxcubecore.HardwareObjects.abstract.AbstractEnergy import AbstractEnergy
-from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
+from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
 
 
 class EPICSActuator(AbstractActuator):
@@ -169,7 +169,7 @@ class EPICSRestrictedMovement:
         self.sc = HWR.beamline.get_object_by_role("sample_changer")
 
     def set_value(self, value, timeout: float = 0):
-        if self.sc.current_state != AbstractSampleChanger.SampleChangerState.Ready:
+        if self.sc.get_state() != SampleChangerState.Ready:
             return
         super().set_value(value, timeout)
 

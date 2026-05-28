@@ -1,7 +1,3 @@
-"""
-Class for cameras connected by EPICS Area Detector
-"""
-
 from mxcubecore.BaseHardwareObjects import HardwareObject
 
 
