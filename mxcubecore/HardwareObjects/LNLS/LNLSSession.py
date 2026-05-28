@@ -3,7 +3,7 @@ import time
 import os
 
 class LNLSSession(Session):
-    def get_base_data_directory(self):
+    def get_base_image_directory(self):
         start_time = time.strftime("%Y%m%d")
         proposal = self.get_proposal()
         proposal = proposal.replace("test0020", "00000000")
