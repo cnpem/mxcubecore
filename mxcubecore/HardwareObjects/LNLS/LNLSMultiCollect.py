@@ -6,6 +6,8 @@ from mxcubecore.BaseHardwareObjects import HardwareObject
 from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import (
     AbstractMultiCollect,
 )
+import random
+from mxcubeweb.core.util.convertutils import to_camel
 
 
 class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
@@ -85,80 +87,85 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         pixel_per_mm_y = round(1 / mm_per_pixel_y, 6)
         return [pixel_per_mm_x, pixel_per_mm_y]
 
-    def get_grid_start_by_axis(self, selected_grid, axis):
+    def get_grid_start_by_axis(self, selected_grid_dict, axis):
         diff_from_beam = (
-            selected_grid["screen_coord"][axis] - selected_grid["beam_pos"][axis]
+            selected_grid_dict["screen_coord"][axis] - selected_grid_dict["beam_pos"][axis]
         )
         pxpmm = self.get_pxpmm()[axis]
-        print("pxpmm from grid dict: ", selected_grid["pixels_per_mm"][axis])
-        print("pxpmm from diff: ", pxpmm)
-        print("diff_from_beam:", diff_from_beam)
         return diff_from_beam / pxpmm
 
-    def get_grid_start_position(self, selected_grid):
+    def get_grid_start_position(self, selected_grid_dict):
         diffractometer = HWR.beamline.diffractometer
         sampx = diffractometer.sampx.get_value()
         samp_y = diffractometer.sampy.get_value()
 
-        grid_x = self.get_grid_start_by_axis(selected_grid, 0)
-        grid_y = -1 * self.get_grid_start_by_axis(selected_grid, 1)
+        grid_x = self.get_grid_start_by_axis(selected_grid_dict, 0)
+        grid_y = -1 * self.get_grid_start_by_axis(selected_grid_dict, 1)
 
-        print("grid_x: ", grid_x)
-        print("grid_y: ", grid_y)
-        print("sampx: ", sampx)
-        print("samp_y: ", samp_y)
-        start_x = sampx + grid_x
-        start_y = samp_y + grid_y
+        start_x = sampx - grid_x
+        start_y = samp_y - grid_y
 
         return start_x, start_y
 
     def get_grid_scan_data(self):
         grid_list = HWR.beamline.sample_view.get_grids()
-        selected_grid = None
+        selected_grid_dict = None
         for grid in grid_list:
             grid_as_dict = grid.as_dict()
             if grid_as_dict["selected"]:
                 grid_found_msg = "Found selected grid {}".format(grid_as_dict["name"])
-                selected_grid = grid_as_dict
+                selected_grid_dict = grid_as_dict
+                selected_grid = grid
                 break
             else:
                 print("Ignoring grid {}".format(grid_as_dict["id"]))
 
-        if selected_grid is None:
+        if selected_grid_dict is None:
             grid_found_msg = "Found unselected grid {}".format(grid_as_dict["name"])
             logging.getLogger("HWR").info(grid_found_msg)
-            selected_grid = grid_list[0].as_dict()
+            selected_grid_dict = grid_list[0].as_dict()
+            selected_grid = grid_list[0]
 
-        print("\n")
-        print(selected_grid)
-        start_x, start_y = self.get_grid_start_position(selected_grid)
-        width = selected_grid["dx_mm"]
-        height = selected_grid["dy_mm"]
-        steps_x = selected_grid["steps_x"]
-        steps_y = selected_grid["steps_y"]
+        start_x, start_y = self.get_grid_start_position(selected_grid_dict)
+        width = selected_grid_dict["dx_mm"]
+        height = selected_grid_dict["dy_mm"]
+        steps_x = selected_grid_dict["steps_x"]
+        steps_y = selected_grid_dict["steps_y"]
 
-        print("\n")
-        print("start_x: ", start_x)
-        print("start_y: ", start_y)
-        print("width (end_x): ", width)
-        print("height (end_y): ", height)
-        print("steps_x: ", steps_x)
-        print("steps_y: ", steps_y)
-        print("\n")
+        return start_x, start_y, width, height, steps_x, steps_y, selected_grid
 
-        return start_x, start_y, width, height, steps_x, steps_y
+    def return_gridscan_processing_results(self, grid):
+        num_cols = grid.num_cols
+        num_rows = grid.num_rows
+        grid_result = {
+            "heatmap": {}
+        }
+        for row in range(num_rows):
+            for col in range(num_cols):
+                flat_index = row * num_cols + col
+                cell_id = str(row * num_cols + col + 1)
+                score = random.randint(0, 255)
+                color = [score, 0, 0]
+                grid_result["heatmap"][cell_id] = [
+                    score,
+                    color
+                ]
+        shape = HWR.beamline.sample_view.get_shape(grid.id)
+        shape.set_result(grid_result)
+        shape.result_data_path = None
+        shape_dict = to_camel(shape.as_dict())
+        shape_dict["cellCountFun"] = "left-to-right"
+        HWR.beamline.sample_view.emit("newGridResult", shape_dict)
 
     def gridscan_procedure(self, owner, data_collect_parameters):
-        start_x, start_y, width, height, steps_x, steps_y = self.get_grid_scan_data()
-        print("final width:", width)
-        print("final height:", height)
+        start_x, start_y, width, height, steps_x, steps_y, selected_grid = self.get_grid_scan_data()
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
         exp_time = float(
             data_collect_parameters["oscillation_sequence"][0]["exposure_time"]
         )
         start_angle = float(data_collect_parameters["oscillation_sequence"][0]["start"])
-        angle_increment = float(
+        oscillation_range = float(
             data_collect_parameters["oscillation_sequence"][0]["range"]
         )
         self._bluesky_api.execute_plan(
@@ -173,10 +180,12 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "file_path": file_parameters["directory"],
                 "file_name": file_name,
                 "start_angle": start_angle,
-                "angle_increment": angle_increment,
-                "acquire_time": exp_time
+                "oscillation_range": oscillation_range,
+                "acquire_time": exp_time,
+                "debug": True
             },
         )
+        self.return_gridscan_processing_results(selected_grid)
 
     def helical_scan_procedure(self, owner, data_collect_parameters):
         cplist = []

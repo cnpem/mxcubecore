@@ -8,6 +8,7 @@ from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import (
     EPICSActuator,
     EPICSRestrictedMovement,
 )
+from mxcubecore import HardwareRepository as HWR
 
 
 class EPICSMotor(EPICSActuator, AbstractMotor):
@@ -170,3 +171,37 @@ class LNLSRestrictedMotor(EPICSRestrictedMovement, EPICSMotor):
 
 class LNLSRestrictedMotorDetachable(EPICSRestrictedMovement, EPICSMotorDetachable):
     pass
+
+
+class LNLSUpdateGridPositionHorizontal(LNLSRestrictedMotor):
+    def init(self):
+        super().init()
+        self.previous_value = None
+
+    def update_grid_value(self, value=None):
+        previous_value = self.previous_value
+        current_value = self.get_value()
+        self.previous_value = current_value
+        if previous_value is not None:
+            diff = previous_value - current_value
+            d = HWR.beamline.diffractometer
+            pxpmm = d.get_pixels_per_mm()[0]
+            pixel_diff_x = pxpmm * diff
+            HWR.beamline.sample_view.update_grid_positions(pixel_diff_x, 0)
+
+
+class LNLSUpdateGridPositionVertical(LNLSRestrictedMotor):
+    def init(self):
+        super().init()
+        self.previous_value = None
+
+    def update_grid_value(self, value=None):
+        previous_value = self.previous_value
+        current_value = self.get_value()
+        self.previous_value = current_value
+        if previous_value is not None:
+            diff = previous_value - current_value
+            d = HWR.beamline.diffractometer
+            pxpmm = d.get_pixels_per_mm()[1]
+            pixel_diff_y = pxpmm * diff
+            HWR.beamline.sample_view.update_grid_positions(0, -pixel_diff_y)

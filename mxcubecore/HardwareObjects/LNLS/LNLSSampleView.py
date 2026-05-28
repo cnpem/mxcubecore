@@ -5,7 +5,8 @@ from mxcubeweb.app import MXCUBEApplication as frontendApplication
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
-from mxcubecore.HardwareObjects.SampleView import SampleView
+from mxcubecore.HardwareObjects.SampleView import SampleView, Grid
+from mxcubeweb.core.util.convertutils import to_camel
 
 
 class LNLSSampleView(SampleView):
@@ -17,6 +18,31 @@ class LNLSSampleView(SampleView):
         self.READY_FOR_NEXT_CLICK = gevent.event.Event()
         self.x, self.y = None, None
         self.frontend_application = frontendApplication
+
+    def _update_shape_positions(self, *args, **kwargs):
+        for shape in self.get_shapes():
+            if not isinstance(shape, Grid):
+                shape.update_position(self.motor_positions_to_screen)
+        self.emit("shapesChanged")
+
+    def update_grid_positions(self, pixel_diff_x, pixel_diff_y):
+        final_shape_dict = {}
+        grid_list = self.get_grids()
+        for grid in grid_list:
+            shape = self.get_shape(grid.id)
+            shape_dict = to_camel(shape.as_dict())
+            previous_coord = shape_dict["screenCoord"]
+            new_coord = [(previous_coord[0] - pixel_diff_x), previous_coord[1] - pixel_diff_y]
+            shape_dict["screenCoord"] = new_coord
+            shape_dict["cellCountFun"] = "left-to-right"
+            #current_motor_positions = self.get_current_motor_positions()
+            #shape_dict["motorPositions"] = current_motor_positions
+            #grid.update_from_dict({"screenCoord": new_coord, "motorPositions": current_motor_positions})
+            grid.update_from_dict({"screenCoord": new_coord})
+            grid.screen_coord = new_coord
+            final_shape_dict.update({grid.id: shape_dict})
+            self.frontend_application.server.emit("update_shapes", {"shapes": final_shape_dict}, namespace="/hwr")
+            self.emit("shapesChanged")
 
     def move_to_beam(self, x, y):
         if self.sc.get_state() != SampleChangerState.Ready:
@@ -111,4 +137,24 @@ class LNLSSampleView(SampleView):
         return
 
     def get_centred_point_from_coord(self, x, y, return_by_names=None):
-        return {"omega": 0, "phiy": 0, "phiz": 0, "sampx": 0, "sampy": 0}
+        motors_dict = self.get_positions()
+        d = HWR.beamline.diffractometer
+        omega = d.omega.get_value()
+        phiy = d.phiy.get_value()
+        phiz = d.phiz.get_value()
+        sampx = d.sampx.get_value()
+        sampy = d.sampy.get_value()
+
+        beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+        x_px = beam_pos[0] - x
+        y_px = y - beam_pos[1]
+
+        zoom_enum = d.zoom.get_value()
+        current_zoom = zoom_enum.name
+        mm_per_pixel_x = d.zoom.get_property("mm_per_pixel_x")[current_zoom]
+        mm_per_pixel_y = d.zoom.get_property("mm_per_pixel_y")[current_zoom]
+
+        sampx = sampx + x_px * mm_per_pixel_x
+        sampy = sampy + y_px * mm_per_pixel_y
+
+        return {"omega": omega, "phiy": phiy, "phiz": phiz, "sampx": sampx, "sampy": sampy}
