@@ -193,9 +193,6 @@ class LNLSSampleChanger(SampleChanger):
         for basket_idx in range(self.no_of_baskets):
             puck_id = self.sc_channels[f"puck_id_{basket_idx + 1}"].get_value()
 
-            if puck_id == "None":
-                continue
-
             for sample_idx in range(self.no_of_samples_in_basket):
                 sample_list.append(
                     (
