@@ -1,12 +1,15 @@
 import logging
 import requests
+import subprocess
+import ast
+from prefect.artifacts import Artifact
+import random
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.BaseHardwareObjects import HardwareObject
 from mxcubecore.HardwareObjects.abstract.AbstractMultiCollect import (
     AbstractMultiCollect,
 )
-import random
 from mxcubeweb.core.util.convertutils import to_camel
 
 
@@ -135,18 +138,35 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
         return start_x, start_y, width, height, steps_x, steps_y, selected_grid
 
+    def get_latest_artifact(self):
+        subprocess.run(["prefect", "config", "set", "PREFECT_API_URL=http://10.39.50.93:4200/api/"])
+        artifact = Artifact.get(key='dozor-output')
+        return artifact.data
+
     def return_gridscan_processing_results(self, grid):
         num_cols = grid.num_cols
         num_rows = grid.num_rows
         grid_result = {
             "heatmap": {}
         }
+        artifact_data = self.get_latest_artifact()
+        artifact_data = ast.literal_eval(artifact_data)
         for row in range(num_rows):
             for col in range(num_cols):
-                flat_index = row * num_cols + col
+                if row % 2 == 0:
+                    frame = row * num_cols + col + 1
+                    flat_index = frame - 1
+                    print("row: ", row, ", col: ", col, ", frame: ", frame, "flat_index: ", flat_index)
+                else:
+                    frame = (row + 1) * num_cols - col
+                    flat_index = frame - 1
+                    print("row: ", row, ", col: ", col, ", frame: ", frame, "flat_index: ", flat_index)
                 cell_id = str(row * num_cols + col + 1)
-                score = random.randint(0, 255)
-                color = [score, 0, 0]
+                score = 0
+                if artifact_data[flat_index]:
+                    if artifact_data[flat_index]['heat_map_intensity_norm']:
+                        score = artifact_data[flat_index]['heat_map_intensity_norm']
+                color = [score * 255, 0, 255 - score * 255]
                 grid_result["heatmap"][cell_id] = [
                     score,
                     color
@@ -176,8 +196,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "start_y": start_y,
                 "width": width,
                 "height": height,
-                "num_rows": steps_x,
-                "num_cols": steps_y,
+                "num_rows": steps_y,
+                "num_cols": steps_x,
                 "file_path": file_parameters["directory"],
                 "file_name": file_name,
                 "start_angle": start_angle,
@@ -203,6 +223,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         return sequence_id
 
     def get_file_abs_path(self, data_collect_parameters):
+        cb = int(data_collect_parameters["fileinfo"]["run_number"])
+        cb = f"{cb:04d}"
         sequence_id = self.get_detector_sequence_id()
         prefix = data_collect_parameters['fileinfo']['prefix']
         file_name = f"{prefix}_{cb}_{sequence_id}_master.h5"
@@ -240,7 +262,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
     def notify_adxv_server(self, file_abs_path):
         try:
-            timeout_seconds = 3
+            timeout_seconds = 2
             url = 'http://10.31.74.56:5005/open'
             payload = {"path": file_abs_path}
             response = requests.post(url, json=payload, timeout=timeout_seconds)
