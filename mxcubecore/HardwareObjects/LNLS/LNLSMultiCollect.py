@@ -2,7 +2,6 @@ import logging
 import requests
 import subprocess
 import ast
-from prefect.artifacts import Artifact
 import random
 
 from mxcubecore import HardwareRepository as HWR
@@ -139,9 +138,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         return start_x, start_y, width, height, steps_x, steps_y, selected_grid
 
     def get_latest_artifact(self):
-        subprocess.run(["prefect", "config", "set", "PREFECT_API_URL=http://10.39.50.93:4200/api/"])
-        artifact = Artifact.get(key='dozor-output')
-        return artifact.data
+        return None
 
     def return_gridscan_processing_results(self, grid):
         num_cols = grid.num_cols
