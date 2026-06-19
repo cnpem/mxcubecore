@@ -178,8 +178,6 @@ class LNLSSampleChanger(SampleChanger):
     def get_name_from_address(self, address):
         puck = address.split(":")[0]
         name = self.sc_channels[f"puck_id_{puck}"].get_value()
-        if name == "None":
-            return None
         return f"{name}-{address}"
 
     def configure_samples(self):
@@ -191,11 +189,6 @@ class LNLSSampleChanger(SampleChanger):
         sample_list = []
 
         for basket_idx in range(self.no_of_baskets):
-            puck_id = self.sc_channels[f"puck_id_{basket_idx + 1}"].get_value()
-
-            if puck_id == "None":
-                continue
-
             for sample_idx in range(self.no_of_samples_in_basket):
                 sample_list.append(
                     (
