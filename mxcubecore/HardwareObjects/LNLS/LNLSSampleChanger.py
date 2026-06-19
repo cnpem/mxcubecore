@@ -1,8 +1,12 @@
 import logging
 
 from mxcubeweb.app import MXCUBEApplication
+
 from mxcubecore import HardwareRepository as HWR
-from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChanger, SampleChangerState
+from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import (
+    SampleChanger,
+    SampleChangerState,
+)
 from mxcubecore.HardwareObjects.abstract.sample_changer import Container
 from mxcubecore.HardwareObjects.LNLS.LNLSBeamlineActions import MountAction
 
@@ -38,6 +42,7 @@ class LNLSSampleChanger(SampleChanger):
         no_of_baskets: 3
         no_of_samples_in_basket: 16
     """
+
     __TYPE__ = "Sample Changer"
 
     def __init__(self, name):
@@ -151,7 +156,7 @@ class LNLSSampleChanger(SampleChanger):
         state = {
             "ready": SampleChangerState.Ready,
             "loading": SampleChangerState.Loading,
-            "unloading": SampleChangerState.Unloading
+            "unloading": SampleChangerState.Unloading,
         }[state]
         self._set_state(state)
 
@@ -167,9 +172,7 @@ class LNLSSampleChanger(SampleChanger):
     def configure_baskets(self):
         for idx in range(self.no_of_baskets):
             basket = self.get_components()[idx]
-            present = (
-                self.sc_channels[f"puck_id_{idx + 1}"].get_value() != "None"
-            )
+            present = self.sc_channels[f"puck_id_{idx + 1}"].get_value() != "None"
             basket._set_info(present, None, False)  # noqa: SLF001
 
     def get_name_from_address(self, address):
