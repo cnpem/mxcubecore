@@ -4,7 +4,10 @@ from typing import Optional
 import gevent
 
 from mxcubecore.HardwareObjects.abstract.AbstractMotor import AbstractMotor
-from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import EPICSActuator, EPICSRestrictedMovement
+from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import (
+    EPICSActuator,
+    EPICSRestrictedMovement,
+)
 
 
 class EPICSMotor(EPICSActuator, AbstractMotor):
@@ -163,6 +166,7 @@ class ResolutionVirtualMotor(EPICSMotor):
 
 class LNLSRestrictedMotor(EPICSRestrictedMovement, EPICSMotor):
     pass
+
 
 class LNLSRestrictedMotorDetachable(EPICSRestrictedMovement, EPICSMotorDetachable):
     pass
