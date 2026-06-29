@@ -47,9 +47,8 @@ class LNLSEnergyScan(AbstractEnergyScan):
         blsample_id=None,
         cpos=None,
     ):
-        """Do the scan"""
-        if self._egyscan_task and not self._egyscan_task.ready():
-            raise RuntimeError("Scan already started.")
+        if self._bluesky_api.api.status()["manager_state"] == "executing_queue":
+            raise RuntimeError("Another Bluesky plan is still running")
 
         self.emit("energyScanStarted", ())
 
