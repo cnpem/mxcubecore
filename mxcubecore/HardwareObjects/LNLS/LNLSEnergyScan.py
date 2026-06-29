@@ -52,6 +52,8 @@ class LNLSEnergyScan(AbstractEnergyScan):
 
         self.emit("energyScanStarted", ())
 
+        self.energy.update_state(self.STATES.BUSY)
+
         self.energy_scan_parameters["element"] = element
         self.energy_scan_parameters["edge"] = edge
         self.energy_scan_parameters["directory"] = directory
@@ -79,6 +81,7 @@ class LNLSEnergyScan(AbstractEnergyScan):
 
         self.emit("energyScanFinished", (self.energy_scan_parameters,))
         self.ready_event.set()
+        self.energy.update_state(self.STATES.READY)
 
     def do_chooch(self, elt, edge, scan_directory, archive_directory, prefix):
         return (
