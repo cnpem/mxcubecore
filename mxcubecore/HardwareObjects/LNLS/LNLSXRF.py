@@ -1,6 +1,3 @@
-import logging
-import os
-
 import gevent
 
 from mxcubecore import HardwareRepository as HWR
@@ -39,20 +36,10 @@ class LNLSXRF(HardwareObject):
         blsample_id,
         cpos,
     ):
-        beam_energy = self.energy.get_value()
-
-        proc_dir = data_dir.replace("/data/", "/proc/") + "/xrfproc_{}".format(prefix)
-        try:
-            os.makedirs(data_dir, exist_ok=True)
-            os.makedirs(proc_dir, exist_ok=True)
-        except OSError:
-            logging.getLogger("HWR").info("error creating XRF directories: e")
-
         plan_kwargs = {
             "file_path": data_dir,
             "file_name": prefix,
             "acquire_time": integration_time,
-            "beam_energy": beam_energy,
             "new_sample": False,
         }
 
