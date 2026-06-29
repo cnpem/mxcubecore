@@ -29,12 +29,13 @@ class LNLSEnergyScan(AbstractEnergyScan):
     """
 
     def __init__(self, name):
-        AbstractEnergyScan.__init__(self, name)
-        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        super().__init__(name)
+        self._bluesky_api = None
 
     def init(self):
+        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
+        self.energy = HWR.beamline.get_object_by_role("energy")
         self.ready_event = gevent.event.Event()
-        self.energy_scan_parameters = {}
 
     def start_energy_scan(
         self,
