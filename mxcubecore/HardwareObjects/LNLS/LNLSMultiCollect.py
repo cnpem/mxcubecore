@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -301,7 +302,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         logging.getLogger("HWR").info(f"\n{data_collect_parameters}\n")
 
     def get_master_full_file_name(self):
-        full_file_name = self.mx_collect_channels["full_file_name"].get_value()
+        encoded_value = self.mx_collect_channels["full_file_name"].get_value()
+        full_file_name = encoded_value.astype(np.uint8).tobytes().decode('utf-8').rstrip('\x00')
         if not full_file_name.endswith("_master.h5"):
             full_file_name = '_data_'.join(full_file_name.split('_data_')[0:-1]) + "_master.h5"
         return full_file_name
