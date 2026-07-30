@@ -150,16 +150,27 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         artifact = Artifact.get(key="dozor-output")
         return artifact.data
 
+    def get_dozor_output():
+    url = "http://10.31.71.16:5000/read_dozor_output"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        payload = response.json()
+        data = payload.get('data')
+        print("--- Dozor Output ---")
+        print(data)
+        return data
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to fetch dozor output: {e}")
+        return None
+
     def return_gridscan_processing_results(self, grid, start_x, start_y, width, height):
         num_cols = grid.num_cols
         num_rows = grid.num_rows
         step_size = round(width / num_cols, 3)
         grid_result = {"heatmap": {}}
         grid_result_x_ray_scanning = {"heatmap": {}}
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(self.get_latest_artifact)
-            artifact_data = future.result()
-        artifact_data = ast.literal_eval(artifact_data)
+        artifact_data = get_dozor_output()
         for row in range(num_rows):
             for col in range(num_cols):
                 if row % 2 == 0:
