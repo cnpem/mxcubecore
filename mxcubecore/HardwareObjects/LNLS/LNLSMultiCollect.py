@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from mxcubeweb.core.util.convertutils import to_camel
+from mxcubeweb.app import MXCUBEApplication
 from prefect.artifacts import Artifact
 
 from mxcubecore import HardwareRepository as HWR
@@ -54,6 +55,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.emit("collectConnected", (True,))
         self.emit("collectReady", (True,))
         self.mx_collect_channels = self._CommandContainer__channels
+        self.frontend_application = MXCUBEApplication
 
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
@@ -150,19 +152,19 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         artifact = Artifact.get(key="dozor-output")
         return artifact.data
 
-    def get_dozor_output():
-    url = "http://10.31.71.16:5000/read_dozor_output"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        payload = response.json()
-        data = payload.get('data')
-        print("--- Dozor Output ---")
-        print(data)
-        return data
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch dozor output: {e}")
-        return None
+    def get_dozor_output(self):
+        url = "http://10.31.71.16:5000/read_dozor_output"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            payload = response.json()
+            data = payload.get('data')
+            print("--- Dozor Output ---")
+            print(data)
+            return data['data']
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to fetch dozor output: {e}")
+            return None
 
     def return_gridscan_processing_results(self, grid, start_x, start_y, width, height):
         num_cols = grid.num_cols
@@ -170,7 +172,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         step_size = round(width / num_cols, 3)
         grid_result = {"heatmap": {}}
         grid_result_x_ray_scanning = {"heatmap": {}}
-        artifact_data = get_dozor_output()
+        artifact_data = self.get_dozor_output()
         for row in range(num_rows):
             for col in range(num_cols):
                 if row % 2 == 0:
@@ -219,7 +221,11 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         shape.result_data_path = None
         shape_dict = to_camel(shape.as_dict())
         shape_dict["cellCountFun"] = "left-to-right"
-        HWR.beamline.sample_view.emit("newGridResult", shape_dict)
+        self.frontend_application.server.emit(
+            "grid_result_available",
+            {"shape": shape_dict},
+            namespace="/hwr",
+        )
 
     def gridscan_procedure(self, owner, data_collect_parameters):
         start_x, start_y, width, height, steps_x, steps_y, selected_grid = (
