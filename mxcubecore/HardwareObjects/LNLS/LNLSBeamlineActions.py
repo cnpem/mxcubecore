@@ -2,6 +2,7 @@ from mxcubecore import HardwareRepository as HWR
 from mxcubecore.BaseHardwareObjects import HardwareObjectState
 from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 from mxcubecore.HardwareObjects.BeamlineActions import BeamlineActions
+import requests
 
 
 class LNLSBaseAction:
@@ -140,3 +141,31 @@ class MountAction(LNLSSampleChangerAction):
     def unmount(self):
         self.movement_option = "unmount"
         return self()
+
+
+class DetectCrystals(LNLSBaseAction):
+
+    def detect_crystals(self):
+        url = "http://10.31.74.59:5000/detect"
+        payload = {"conf": 0.5, "max_det": 300}
+        response = requests.post(url, json=payload)
+        data = response.json()
+        if response.status_code == 200:
+            centers = data["centers"]
+        else:
+            centers = []
+        return centers
+
+    def __call__(self, *args, **kwargs):
+        sv = HWR.beamline.get_object_by_role("sample_view")
+        motor_positions = sv.get_positions()
+        centers = self.detect_crystals()
+
+        if centers:
+            for center in centers:
+                x = center[0]
+                y = center[1]
+                sv.add_shape_from_mpos([motor_positions], (x, y), "P")
+            sv.update_points_from_beamline_action()
+
+        return args

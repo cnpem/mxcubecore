@@ -56,11 +56,16 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.emit("collectReady", (True,))
         self.mx_collect_channels = self._CommandContainer__channels
         self.frontend_application = MXCUBEApplication
+        self.multi_crystals = self.get_property("multi_crystals", False)
+        self.point_id = 0
 
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
+        if self.multi_crystals:
+            point_id = self.point_id
+            file_name = f"{file_name}_p{point_id:04d}"
         start = float(
             data_collect_parameters["oscillation_sequence"][0]["start"]
         )  # omega start pos
@@ -71,19 +76,28 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         acquire_time = float(
             data_collect_parameters["oscillation_sequence"][0]["exposure_time"]
         )
-        self._bluesky_api.execute_plan(
-            plan_name="flyscan",
-            kwargs={
-                "start": start,
-                "file_path": file_parameters["directory"],
-                "file_name": file_name,
-                "angle_increment": step_size,
-                "acquire_time": acquire_time,
-                "num_images": num_of_points,
-                "snapshot_num": self.number_of_snapshots,
-                "debug": True,
-            },
-        )
+        plan_params = {
+            "start": start,
+            "file_path": file_parameters["directory"],
+            "file_name": file_name,
+            "angle_increment": step_size,
+            "acquire_time": acquire_time,
+            "num_images": num_of_points,
+            "snapshot_num": self.number_of_snapshots,
+            "debug": True,
+        }
+
+        if self.multi_crystals:
+            plan_params["reset_omega"] = False
+            plan_params["snapshot_num"] = 0
+            plan_params["post_close_cover"] = False
+
+        print(f"\nplan_params: {plan_params}\n")
+
+        #self._bluesky_api.execute_plan(
+        #    plan_name="flyscan",
+        #    kwargs=plan_params
+        #)
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer
@@ -338,13 +352,41 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").info(f"Error trying to notify adxv server: {e}")
 
     def do_collect(self, owner, data_collect_parameters):
-        experiment_type = data_collect_parameters["experiment_type"]
-        if experiment_type == "OSC":
-            self.flyscan_procedure(owner, data_collect_parameters)
-            self.perform_xlsx_request(data_collect_parameters)
-            self.notify_adxv_server()
-        elif experiment_type == "Mesh":
-            self.gridscan_procedure(owner, data_collect_parameters)
-            self.notify_adxv_server()
-        elif experiment_type == "Helical":
-            self.helical_scan_procedure(owner, data_collect_parameters)
+
+        if self.multi_crystals:
+            experiment_type = data_collect_parameters["experiment_type"]
+            sv = HWR.beamline.get_object_by_role("sample_view")
+            beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+            beam_center_x = beam_pos[0]
+            beam_center_y = beam_pos[1]
+            print("Center: ", beam_center_x, beam_center_y)
+            self.point_id = 0
+            previous_dx = 0
+            previous_dy = 0
+            shapes = sv.get_shapes()
+            for shape in shapes:
+                shape_dict = to_camel(shape.as_dict())
+                screen_coord = shape_dict["screenCoord"]
+                x = screen_coord[0] - previous_dx
+                y = screen_coord[1] - previous_dy
+                previous_dx = screen_coord[0] - beam_center_x
+                previous_dy = screen_coord[1] - beam_center_y
+                print(f"Moving to position: x={x}, y={y}")
+                #sv.move_to_beam(x, y)
+                print("Performing data collection:")
+                print("Directory: {}".format(data_collect_parameters["fileinfo"]["directory"]))
+                print("Sample Name: {}".format(data_collect_parameters["sample_reference"]["sample_name"]))
+                print("Sample Acronym: {}".format(data_collect_parameters["sample_reference"]["acronym"]))
+                print(f"Point ID: {self.point_id}\n")
+                self.flyscan_procedure(owner, data_collect_parameters)
+                self.point_id = self.point_id + 1
+        #else:
+            #if experiment_type == "OSC":
+            #    self.flyscan_procedure(owner, data_collect_parameters)
+            #    self.perform_xlsx_request(data_collect_parameters)
+            #    self.notify_adxv_server()
+            #elif experiment_type == "Mesh":
+            #    self.gridscan_procedure(owner, data_collect_parameters)
+            #    self.notify_adxv_server()
+            #elif experiment_type == "Helical":
+            #    self.helical_scan_procedure(owner, data_collect_parameters)
