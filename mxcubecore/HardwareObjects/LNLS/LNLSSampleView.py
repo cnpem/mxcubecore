@@ -6,7 +6,7 @@ from mxcubeweb.core.util.convertutils import to_camel
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
-from mxcubecore.HardwareObjects.SampleView import Grid, SampleView
+from mxcubecore.HardwareObjects.SampleView import Grid, Point, SampleView
 
 
 class LNLSSampleView(SampleView):
@@ -19,6 +19,8 @@ class LNLSSampleView(SampleView):
         self.x, self.y = None, None
         self.frontend_application = frontendApplication
         self.current_centring_method = None
+        self.current_x_point = 540
+        self.current_y_point = 612
 
     def move_to_beam_bluesky(self, x, y, plan_name, step = -1):
         beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
@@ -150,6 +152,22 @@ class LNLSSampleView(SampleView):
         for shape in self.get_shapes():
             if not isinstance(shape, Grid):
                 shape.update_position(self.motor_positions_to_screen)
+        self.emit("shapesChanged")
+
+    def return_point_current_position(self, positions_dict: dict[str, float]) -> tuple[int, int]:
+        return int(self.current_x_point), int(self.current_y_point)
+
+    def update_points_from_beamline_action(self, *args, **kwargs):
+        for shape in self.get_shapes():
+            if isinstance(shape, Point):
+                shape_dict = to_camel(shape.as_dict())
+                current_point_position = shape_dict["screenCoord"]
+                x = current_point_position[0]
+                y = current_point_position[1]
+                self.current_x_point = x
+                self.current_y_point = y
+                print("current_point_position: ", current_point_position)
+                shape.update_position(self.return_point_current_position)
         self.emit("shapesChanged")
 
     def update_grid_positions(self, pixel_diff_x, pixel_diff_y):
