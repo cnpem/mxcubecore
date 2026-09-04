@@ -96,27 +96,26 @@ class LNLSSampleView(SampleView):
                 break
             self.READY_FOR_NEXT_CLICK.clear()
             self.READY_FOR_NEXT_CLICK.wait()
+            if self.current_centring_method is None:
+                break
             beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
             if (self.x is not None) and (self.y is not None):
                 self.move_to_beam_bluesky(self.x, self.y, "manual_alignment", step)
                 self.x = None
                 self.y = None
         self.user_level_log.info("Manual sample alignment has finished...")
-        if self.current_centring_method is None:
-            self.frontend_application.server.emit("abort_centring", namespace="/hwr")
-            return
+        self.frontend_application.server.emit("abort_centring", namespace="/hwr")
         self.finish_centring()
 
     def cancel_centring(self):
         if self.current_centring_procedure:
             self.current_centring_procedure = None
-            logging.getLogger("HWR").exception("Centring canceled")
+            self.READY_FOR_NEXT_CLICK.set()
         self.centring_failed()
 
     def reject_centring(self):
         self.centring_status["valid"] = False
         self.emit("centringAccepted", (False, self.get_centring_status()))
-        logging.getLogger("user_level_log").info("Centring cancelled")
 
     def get_snapshot(self):
         return None
@@ -140,7 +139,6 @@ class LNLSSampleView(SampleView):
         mm_per_pixel_x = d.zoom.get_property("mm_per_pixel_x")[current_zoom]
         mm_per_pixel_y = d.zoom.get_property("mm_per_pixel_y")[current_zoom]
         return mm_per_pixel_x, mm_per_pixel_y
-
 
     def get_centred_point_from_coord(self, x, y, return_by_names=None):
         omega, phiy, phiz, sampx, sampy = self.get_current_diffractometer_positions()
