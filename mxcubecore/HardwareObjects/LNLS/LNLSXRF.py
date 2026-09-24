@@ -36,9 +36,18 @@ class LNLSXRF(HardwareObject):
         blsample_id,
         cpos,
     ):
+
+        if self._bluesky_api.api.status()["manager_state"] == "executing_queue":
+            raise RuntimeError("Another Bluesky plan is still running")
+
+        collection_number = int(prefix.split("_")[-1])
+        collection_number = f"{collection_number:05d}"
+        prefix = "_".join(prefix.split("_")[0:-1])
+        file_name = f"{prefix}_{collection_number}"
+
         plan_kwargs = {
             "file_path": data_dir,
-            "file_name": prefix,
+            "file_name": file_name,
             "acquire_time": integration_time,
             "new_sample": False,
         }
