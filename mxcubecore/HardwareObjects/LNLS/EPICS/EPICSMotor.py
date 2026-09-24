@@ -3,6 +3,7 @@ from typing import Optional
 
 import gevent
 
+from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractMotor import AbstractMotor
 from mxcubecore.HardwareObjects.LNLS.EPICS.EPICSActuator import (
     EPICSActuator,
@@ -161,7 +162,7 @@ class ResolutionVirtualMotor(EPICSMotor):
     """
 
     def get_limits_for_wavelength(self, wavelength):
-        return self.get_limits()
+        return (0, 50)
 
 
 class LNLSRestrictedMotor(EPICSRestrictedMovement, EPICSMotor):
@@ -170,3 +171,26 @@ class LNLSRestrictedMotor(EPICSRestrictedMovement, EPICSMotor):
 
 class LNLSRestrictedMotorDetachable(EPICSRestrictedMovement, EPICSMotorDetachable):
     pass
+
+
+class LNLSSampleMotor(LNLSRestrictedMotor):
+
+    def init(self):
+        super().init()
+        self.previous_value = None
+
+    def update_grid_value(self, value=None):
+        previous_value = self.previous_value
+        current_value = self.get_value()
+        self.previous_value = current_value
+        if previous_value is not None:
+            diff = previous_value - current_value
+            d = HWR.beamline.diffractometer
+            if self.name == "sampx":
+                pxpmm = d.get_pixels_per_mm()[0]
+                pixel_diff_x = pxpmm * diff
+                HWR.beamline.sample_view.update_grid_positions(pixel_diff_x, 0)
+            elif self.name == "sampy":
+                pxpmm = d.get_pixels_per_mm()[1]
+                pixel_diff_y = pxpmm * diff
+                HWR.beamline.sample_view.update_grid_positions(0, -pixel_diff_y)
