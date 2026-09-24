@@ -164,6 +164,13 @@ def get_transmission(energy, transmission):
 
     return transmission, closest_transmission, filter_combination
 
+def get_pvs(foils_pv, foil):
+    pv_1 = foils_pv[foil][1].get()
+    if foil == 'F7_Al':
+        pv_2 = 1 - pv_1
+    else:
+        pv_2 = foils_pv[foil][2].get()
+    return pv_1, pv_2
 
 def set_foils(filter_combination):
 
@@ -255,17 +262,15 @@ def set_foils(filter_combination):
     # as the current logic is inverted (1 is foil out and 0 is foil in) use the uncommented lines.
 
     for foil in attenuator_position:
-        print("")
-        print(foil)
+        pv_1, pv_2 = get_pvs(foils_pv, foil)
         if foil in filter_combination:
-            # if foils_pv[foil][1].get() == 0 and foils_pv[foil][2].get() == 1:
-            if foils_pv[foil][1].get() == 1 and foils_pv[foil][2].get() == 0:
-                # foils_pv[foil][0].put(1)
+            if pv_1 == 1 and pv_2 == 0:
                 foils_pv[foil][0].put(0)
                 time.sleep(wt)
                 n = 0
+                pv_1, pv_2 = get_pvs(foils_pv, foil)
                 while not (
-                    foils_pv[foil][1].get() == 0 and foils_pv[foil][2].get() == 1
+                    pv_1 == 0 and pv_2 == 1
                 ):
                     if n < ntry:
                         foils_pv[foil][0].put(1)
@@ -275,27 +280,22 @@ def set_foils(filter_combination):
                         n += 1
                     else:
                         att_status.append(1)
+                    pv_1, pv_2 = get_pvs(foils_pv, foil)
                 att_status.append(0)
-                # time.sleep(wt)
-            # elif foils_pv[foil][1].get() == 1 and foils_pv[foil][2].get() == 0:
-            elif foils_pv[foil][1].get() == 0 and foils_pv[foil][2].get() == 1:
+            elif pv_1 == 0 and pv_2 == 1:
                 att_status.append(0)
-            elif foils_pv[foil][1].get() == foils_pv[foil][2].get():
+            elif pv_1 == pv_2:
                 att_status.append(1)
         else:
-            # if foils_pv[foil][1].get() == 0 and foils_pv[foil][2].get() == 1:
-            print("pv 1:", foils_pv[foil][1].get())
-            print("pv 2:", foils_pv[foil][2].get())
-            if foils_pv[foil][1].get() == 1 and foils_pv[foil][2].get() == 0:
+            if pv_1 == 1 and pv_2 == 0:
                 att_status.append(0)
-            # elif foils_pv[foil][1].get() == 1 and foils_pv[foil][2].get() == 0:
-            elif foils_pv[foil][1].get() == 0 and foils_pv[foil][2].get() == 1:
-                # foils_pv[foil][0].put(0)
+            elif pv_1 == 0 and pv_2 == 1:
                 foils_pv[foil][0].put(1)
                 time.sleep(wt)
                 n = 0
+                pv_1, pv_2 = get_pvs(foils_pv, foil)
                 while not (
-                    foils_pv[foil][1].get() == 1 and foils_pv[foil][2].get() == 0
+                    pv_1 == 1 and pv_2 == 0
                 ):
                     if n < ntry:
                         foils_pv[foil][0].put(0)
@@ -306,9 +306,9 @@ def set_foils(filter_combination):
                     else:
                         att_status.append(1)
                         break
+                    pv_1, pv_2 = get_pvs(foils_pv, foil)
                 att_status.append(0)
-                # time.sleep(wt)
-            elif foils_pv[foil][1].get() == foils_pv[foil][2].get():
+            elif pv_1 == pv_2:
                 att_status.append(1)
 
     if 1 in att_status:
