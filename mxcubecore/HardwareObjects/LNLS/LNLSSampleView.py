@@ -113,6 +113,11 @@ class LNLSSampleView(SampleView):
             logging.getLogger("HWR").exception("Centring canceled")
         self.centring_failed()
 
+    def reject_centring(self):
+        self.centring_status["valid"] = False
+        self.emit("centringAccepted", (False, self.get_centring_status()))
+        logging.getLogger("user_level_log").info("Centring cancelled")
+
     def get_snapshot(self):
         return None
 
