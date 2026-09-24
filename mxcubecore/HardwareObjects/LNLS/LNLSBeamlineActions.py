@@ -160,6 +160,9 @@ class DetectCrystals(LNLSBaseAction):
         sv = HWR.beamline.get_object_by_role("sample_view")
         motor_positions = sv.get_positions()
         centers = self.detect_crystals()
+        centers.append([500, 600])
+        centers.append([550, 600])
+        centers.append([600, 600])
 
         if centers:
             for center in centers:

@@ -179,6 +179,11 @@ class LNLSSampleChanger(SampleChanger):
         sample = address.split(":")[1]
         pv_index = int(sample) + 16 * (int(puck) - 1)
         name = self.sc_channels[f"sample_{pv_index}"].get_value()
+        puck_pv_value = self.sc_channels[f"puck_id_{puck}"].get_value()
+        if name == 'None':
+            name = f"{puck_pv_value}-{puck}-{sample}"
+        else:
+            name = f"{name}-{puck}-{sample}"
         return name
 
     def configure_samples(self):
