@@ -92,6 +92,8 @@ class LNLSSampleView(SampleView):
             return
         self.start_centring("Manual")
         for step in range(3):
+            if self.current_centring_method is None:
+                break
             self.READY_FOR_NEXT_CLICK.clear()
             self.READY_FOR_NEXT_CLICK.wait()
             beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
@@ -100,7 +102,16 @@ class LNLSSampleView(SampleView):
                 self.x = None
                 self.y = None
         self.user_level_log.info("Manual sample alignment has finished...")
+        if self.current_centring_method is None:
+            self.frontend_application.server.emit("abort_centring", namespace="/hwr")
+            return
         self.finish_centring()
+
+    def cancel_centring(self):
+        if self.current_centring_procedure:
+            self.current_centring_procedure = None
+            logging.getLogger("HWR").exception("Centring canceled")
+        self.centring_failed()
 
     def get_snapshot(self):
         return None
