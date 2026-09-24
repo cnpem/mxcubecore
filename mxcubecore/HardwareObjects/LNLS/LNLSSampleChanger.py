@@ -172,12 +172,13 @@ class LNLSSampleChanger(SampleChanger):
     def configure_baskets(self):
         for idx in range(self.no_of_baskets):
             basket = self.get_components()[idx]
-            present = self.sc_channels[f"puck_id_{idx + 1}"].get_value() != "None"
-            basket._set_info(present, None, False)  # noqa: SLF001
+            basket._set_info(True, None, False)  # noqa: SLF001
 
     def get_name_from_address(self, address):
         puck = address.split(":")[0]
-        name = self.sc_channels[f"puck_id_{puck}"].get_value()
+        sample = address.split(":")[1]
+        pv_index = int(sample) + 16 * (int(puck) - 1)
+        name = self.sc_channels[f"sample_{pv_index}"].get_value()
         return f"{name}-{address}"
 
     def configure_samples(self):
