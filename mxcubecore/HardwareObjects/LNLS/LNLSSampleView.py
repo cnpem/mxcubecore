@@ -288,8 +288,14 @@ class LNLSSampleView(SampleView):
             multi_points_collections_dir = f"{base_image_directory}/multi_points_collections".replace("/data/", "/proc/")
             os.makedirs(multi_points_collections_dir, exist_ok=True)
 
-            loaded_sample = sample_changer.get_loaded_sample()
-            sample_name = loaded_sample.get_name()
+            current_sample = sample_changer.frontend_application.lims.get_current_sample()
+            if current_sample['location'] == 'Manual':
+                protein_acronym = current_sample['proteinAcronym']
+                sample_name = current_sample['sampleName']
+                sample_name = f'{protein_acronym}-{sample_name}'
+            else:
+                loaded_sample = sample_changer.get_loaded_sample()
+                sample_name = loaded_sample.get_name()
 
             png_file_path_placeholder = f"{multi_points_collections_dir}/{sample_name}_run*"
             next_run_number = len(glob.glob(png_file_path_placeholder))

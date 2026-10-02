@@ -44,7 +44,6 @@ class LNLSQueueManager(QueueManager):
             mxcollect.multi_crystals = True
             mxcollect.current_json_path = json_file_path
             mxcollect.current_points_snapshots_folder = points_snapshots_folder
-
         else:
             logging.getLogger("HWR").info("Single Point Data Collection")
             mxcollect.multi_crystals = False
