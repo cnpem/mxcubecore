@@ -234,20 +234,29 @@ class LNLSSampleView(SampleView):
         img[:, :, [2, 0]] = img[:, :, [0, 2]]
         return img
 
-    def get_next_run_number(self, png_file_path_placeholder):
-        return len(glob.glob(png_file_path_placeholder))
+    def _draw_labeled_marker(self, img, x, y, color, label, marker_size, font_scale, thickness):
+        outline_color = (0, 0, 0)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.drawMarker(img, (x, y), outline_color, cv2.MARKER_CROSS,
+                    marker_size, thickness + 2)
+        cv2.drawMarker(img, (x, y), color, cv2.MARKER_CROSS,
+                    marker_size, thickness)
+        text_pos = (x + marker_size // 2 + 4, y - marker_size // 2)
+        cv2.putText(img, label, text_pos, font, font_scale, outline_color,
+                    thickness + 2, cv2.LINE_AA)
+        cv2.putText(img, label, text_pos, font, font_scale, color,
+                    thickness, cv2.LINE_AA)
 
-    def save_png_with_point_labels(self, png_file_path):
+    def save_png_with_point_labels(self, png_file_path, add_beam_center=False):
         raw_img = self.get_raw_image()
         img = raw_img.copy(order="C")
         h, w = img.shape[:2]
-        marker_color = (0, 255, 0)
-        text_color = (0, 255, 0)
-        outline_color = (0, 0, 0)
+        point_color = (0, 255, 0)
+        beam_color = (0, 0, 255)
         marker_size = max(12, w // 60)
-        font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = max(0.5, w / 1600)
         thickness = max(1, w // 800)
+
         for point in self.get_points():
             shape = self.get_shape(point.id)
             shape_dict = to_camel(shape.as_dict())
@@ -259,33 +268,44 @@ class LNLSSampleView(SampleView):
                     f"Point {point_number} at ({x}, {y}) is outside the image ({w}x{h})"
                 )
                 continue
-            cv2.drawMarker(img, (x, y), outline_color, cv2.MARKER_CROSS,
-                        marker_size, thickness + 2)
-            cv2.drawMarker(img, (x, y), marker_color, cv2.MARKER_CROSS,
-                        marker_size, thickness)
-            label = str(point_number)
-            text_pos = (x + marker_size // 2 + 4, y - marker_size // 2)
-            cv2.putText(img, label, text_pos, font, font_scale, outline_color,
-                        thickness + 2, cv2.LINE_AA)
-            cv2.putText(img, label, text_pos, font, font_scale, text_color,
-                        thickness, cv2.LINE_AA)
+            self._draw_labeled_marker(img, x, y, point_color, str(point_number),
+                                    marker_size, font_scale, thickness)
+
+        if add_beam_center:
+            x, y = HWR.beamline.beam.get_beam_position_on_screen()
+            self._draw_labeled_marker(img, x, y, beam_color, "beam", marker_size, font_scale, thickness)
+
         if not cv2.imwrite(png_file_path, img):
             raise IOError(f"Failed to write {png_file_path}")
-        return png_file_path
 
     def save_points_and_snapshot_to_png(self):
         try:
             mxcollect = HWR.beamline.get_object_by_role('collect')
             session = HWR.beamline.get_object_by_role('session')
+            sample_changer = HWR.beamline.get_object_by_role('sample_changer')
+
             base_image_directory = session.get_base_image_directory()
             multi_points_collections_dir = f"{base_image_directory}/multi_points_collections".replace("/data/", "/proc/")
             os.makedirs(multi_points_collections_dir, exist_ok=True)
-            png_file_path_placeholder = f"{multi_points_collections_dir}/multi_points_run*.png"
-            next_run_number = self.get_next_run_number(png_file_path_placeholder)
-            png_file_path = f"{multi_points_collections_dir}/multi_points_run{next_run_number}.png"
-            json_file_path = f"{multi_points_collections_dir}/multi_points_run{next_run_number}.json"
+
+            loaded_sample = sample_changer.get_loaded_sample()
+            sample_name = loaded_sample.get_name()
+
+            png_file_path_placeholder = f"{multi_points_collections_dir}/{sample_name}_run*"
+            next_run_number = len(glob.glob(png_file_path_placeholder))
+            run_folder = f"{multi_points_collections_dir}/{sample_name}_run{next_run_number}"
+            os.makedirs(run_folder)
+
+            points_snapshots_folder = f"{run_folder}/points_snapshots"
+            os.makedirs(points_snapshots_folder)
+
+            png_file_path = f"{run_folder}/{sample_name}.png"
             self.save_png_with_point_labels(png_file_path)
-            return json_file_path
+
+            json_file_path = f"{run_folder}/{sample_name}.json"
+
+            return json_file_path, points_snapshots_folder
+
         except Exception:
             logging.getLogger("HWR").debug("save_points_and_snapshot_to_png failed", exc_info=True)
-            return None
+            return None, None

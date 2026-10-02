@@ -55,6 +55,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.xds_directory = ""
         self.multi_crystals = False
         self.current_json_path = None
+        self.current_points_snapshots_folder = None
 
     def init(self):
         self.emit("collectConnected", (True,))
@@ -124,6 +125,15 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").debug("register_result_at_json_path failed", exc_info=True)
             return None
 
+    def take_current_point_snapshot(self, point_number):
+        try:
+            png_file_path = f"{self.current_points_snapshots_folder}/point_{point_number}.png"
+            sample_view = HWR.beamline.get_object_by_role("sample_view")
+            sample_view.save_png_with_point_labels(png_file_path, add_beam_center=True)
+        except Exception:
+            logging.getLogger("HWR").debug("take_current_point_snapshot failed", exc_info=True)
+            return None
+
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
@@ -156,14 +166,15 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             plan_params["snapshot_num"] = 0
             plan_params["post_close_cover"] = False
 
-        print(f"\nplan_params: {plan_params}\n")
+        if self.multi_crystals and self.current_points_snapshots_folder:
+            shape_name = data_collect_parameters["position_name"]
+            point_number = shape_name.replace("2D-Point-", "")
+            self.take_current_point_snapshot(point_number)
 
         try:
             start_uid = self._get_console_output()["last_msg_uid"]
         except Exception:
             start_uid = "ALL"
-
-        print(f"start_uid is {start_uid}")
 
         progress_task = gevent.spawn(self.emit_progress, num_of_points, start_uid)
         try:
@@ -226,7 +237,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 selected_grid = grid
                 break
             else:
-                print("Ignoring grid {}".format(grid_as_dict["id"]))
+                logging.getLogger("HWR").info("Ignoring grid {}".format(grid_as_dict["id"]))
 
         if selected_grid_dict is None:
             grid_found_msg = "Found unselected grid {}".format(grid_as_dict["name"])
@@ -254,11 +265,11 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             response.raise_for_status()
             payload = response.json()
             data = payload.get('data')
-            print("--- Dozor Output ---")
-            print(data)
+            logging.getLogger("HWR").info("--- Dozor Output ---")
+            logging.getLogger("HWR").info(data)
             return data['data']
         except requests.exceptions.RequestException as e:
-            print(f"Failed to fetch dozor output: {e}")
+            prilogging.getLogger("HWR").infont(f"Failed to fetch dozor output: {e}")
             return None
 
     def return_gridscan_processing_results(self, grid, start_x, start_y, width, height):
@@ -273,29 +284,9 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 if row % 2 == 0:
                     frame = row * num_cols + col + 1
                     flat_index = frame - 1
-                    print(
-                        "row: ",
-                        row,
-                        ", col: ",
-                        col,
-                        ", frame: ",
-                        frame,
-                        "flat_index: ",
-                        flat_index,
-                    )
                 else:
                     frame = (row + 1) * num_cols - col
                     flat_index = frame - 1
-                    print(
-                        "row: ",
-                        row,
-                        ", col: ",
-                        col,
-                        ", frame: ",
-                        frame,
-                        "flat_index: ",
-                        flat_index,
-                    )
                 cell_id = str(row * num_cols + col + 1)
                 score = 0
                 normalized_score = 0
@@ -361,7 +352,6 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         cplist = []
         points = HWR.beamline.sample_view.get_points()
         for point in points:
-            print(dir(point))
             cp = point.get_centred_positions()[0].as_dict()
             cplist.append(cp)
         logging.getLogger("HWR").info(f"\n{cplist}\n")
@@ -435,7 +425,6 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
     def do_collect(self, owner, data_collect_parameters):
 
         if self.multi_crystals:
-            print(f"\n{data_collect_parameters}\n")
             shape_name = data_collect_parameters["position_name"]
             sv = HWR.beamline.get_object_by_role("sample_view")
             shapes = sv.get_shapes()
@@ -450,15 +439,13 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             if found_screen_coord:
                 x = screen_coord[0]
                 y = screen_coord[1]
-                print(f"Moving to position: x={x}, y={y}")
                 sv.move_to_beam(x, y)
-                print("Performing data collection")
+                logging.getLogger("HWR").info("Performing data collection")
                 time.sleep(1)
                 self.flyscan_procedure(owner, data_collect_parameters)
             else:
-                print(f"Could not locate point: {shape_name}")
-                print("No data collection will be performed")
-            print("\n\n")
+                logging.getLogger("HWR").info(f"Could not locate point: {shape_name}")
+                logging.getLogger("HWR").info("No data collection will be performed")
         else:
             experiment_type = data_collect_parameters["experiment_type"]
             if experiment_type == "OSC":
