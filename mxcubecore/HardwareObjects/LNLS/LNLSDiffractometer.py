@@ -24,7 +24,7 @@ class LNLSDiffractometer(AbstractDiffractometer):
         return (pixel_per_mm_x, pixel_per_mm_y)
 
     def save_centring_positions(self):
-        return
+        self.update_state(self.STATES.READY)
 
     def wait_status_ready(self, timeout=None):
         return True
