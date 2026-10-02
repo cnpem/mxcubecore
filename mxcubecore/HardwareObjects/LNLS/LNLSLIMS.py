@@ -10,7 +10,8 @@ class LNLSLIMS(ICATLIMS):
         self.investigations = []
         self.samples = []
 
-        self.icatClient = IcatClient(
+    def _create_icat_client(self):
+        return IcatClient(
             icatplus_restricted_url=self.get_property("icatplus_restricted_url")
         )
 
@@ -25,18 +26,20 @@ class LNLSLIMS(ICATLIMS):
         )
 
     def _create_icat_session(self, user_name: str, password: str):
-        self.icat_session = self.icatClient.do_log_in(
+        icat_client = self._create_icat_client()
+        icat_session = icat_client.do_log_in(
             username=user_name, password=password, plugin="oidc"
         )
+        return icat_session, icat_client
 
     def login(self, user_name, token, is_local_host):
         self.is_local_host = is_local_host
         self.session_manager.active_session = None
-        session_manager, lims_username, sessions = super().login(
+        session_manager, icat_session, sessions = super().login(
             user_name, token, self.session_manager
         )
         self.session_manager = session_manager
-        self.add_user_and_shared_sessions(lims_username, sessions)
+        self.add_user_and_shared_sessions(icat_session, sessions)
         if self.is_single_session_available():
             single_session = self.session_manager.sessions[0]
             self.set_active_session_by_id(single_session.session_id)
