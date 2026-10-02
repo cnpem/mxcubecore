@@ -1,6 +1,8 @@
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.QueueManager import QueueManager
 
+import logging
+
 
 class LNLSQueueManager(QueueManager):
     """
@@ -33,17 +35,24 @@ class LNLSQueueManager(QueueManager):
     def execute(self, entry=None):
         mxcollect = HWR.beamline.get_object_by_role('collect')
         if not entry:
-            print(f"\nMULTI POINTS DC\n")
-            number_of_points = len(self._queue_entry_list[0].get_data_model().get_children())
-            print(f"\nNUMBER OF POINTS: {number_of_points}\n")
+            logging.getLogger("HWR").info("Multiple Points Data Collection")
+            data_model_children_list = self._queue_entry_list[0].get_data_model().get_children()
+            number_of_points = len(data_model_children_list)
+            logging.getLogger("HWR").info(f"Number of Points: {number_of_points}")
+            sample_view = HWR.beamline.get_object_by_role("sample_view")
+            json_file_path = sample_view.save_points_and_snapshot_to_png()
             mxcollect.multi_crystals = True
+            mxcollect.current_json_path = json_file_path
+
         else:
-            print(f"\nSINGLE POINT DC\n")
+            logging.getLogger("HWR").info("Single Point Data Collection")
             mxcollect.multi_crystals = False
+            mxcollect.current_json_path = None
         super().execute(entry)
 
     def __execute_task(self):
         super().__execute_task()
         mxcollect = HWR.beamline.get_object_by_role('collect')
         mxcollect.multi_crystals = False
-        print("\nFIM DE EXECUTE TASK E FIM DA COLETA\n")
+        mxcollect.current_json_path = None
+        logging.getLogger("HWR").info("End of task and end of data collection")

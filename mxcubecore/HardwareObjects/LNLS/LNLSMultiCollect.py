@@ -54,6 +54,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.collection_id = None
         self.xds_directory = ""
         self.multi_crystals = False
+        self.current_json_path = None
 
     def init(self):
         self.emit("collectConnected", (True,))
@@ -94,6 +95,34 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             except Exception:
                 logging.getLogger("HWR").debug("emit_progress failed", exc_info=True)
             gevent.sleep(poll_interval)
+
+    def register_result_at_json_path(self, file_abs_path, point_number):
+        try:
+            sample_view = HWR.beamline.get_object_by_role("sample_view")
+            omega, phiy, phiz, sampx, sampy = sample_view.get_current_diffractometer_positions()
+            json_path = self.current_json_path
+            data = {}
+            if os.path.isfile(json_path):
+                try:
+                    with open(json_path, "r") as f:
+                        data = json.load(f)
+                except (json.JSONDecodeError, OSError):
+                    logging.getLogger("HWR").warning(f"Could not read {json_path}, starting a new file")
+                    data = {}
+            data[point_number] = {
+                "file_abs_path": str(file_abs_path),
+                "omega": float(omega),
+                "phiy": float(phiy),
+                "phiz": float(phiz),
+                "sampx": float(sampx),
+                "sampy": float(sampy),
+            }
+            with open(json_path, "w") as f:
+                json.dump(data, f, indent=2)
+            logging.getLogger("HWR").info(f"Registered: {file_abs_path} corresponds to point {point_number}, motor positions saved at {json_path}")
+        except Exception:
+            logging.getLogger("HWR").debug("register_result_at_json_path failed", exc_info=True)
+            return None
 
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
@@ -144,6 +173,12 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             )
         finally:
             progress_task.kill(block=False)
+
+        if self.multi_crystals and self.current_json_path:
+            file_abs_path = self.get_master_full_file_name()
+            shape_name = data_collect_parameters["position_name"]
+            point_number = shape_name.replace("2D-Point-", "")
+            self.register_result_at_json_path(file_abs_path, point_number)
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer

@@ -1,6 +1,10 @@
 import logging
-
+import numpy as np
 import gevent
+import os
+import glob
+import cv2
+
 from mxcubeweb.app import MXCUBEApplication as frontendApplication
 from mxcubeweb.core.util.convertutils import to_camel
 
@@ -21,6 +25,8 @@ class LNLSSampleView(SampleView):
         self.current_centring_method = None
         self.current_x_point = 540
         self.current_y_point = 612
+        self.sc_channels = self._CommandContainer__channels
+        self.crystal_detection_url = self.get_property("crystal_detection_url")
 
     def move_to_beam_bluesky(self, x, y, plan_name, step = -1):
         beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
@@ -172,7 +178,6 @@ class LNLSSampleView(SampleView):
         return int(self.current_x_point), int(self.current_y_point)
 
     def update_points_from_beamline_action(self, *args, **kwargs):
-        print("\nVeio em update_points_from_beamline_action\n")
         for shape in self.get_shapes():
             if isinstance(shape, Point):
                 shape_dict = to_camel(shape.as_dict())
@@ -218,3 +223,69 @@ class LNLSSampleView(SampleView):
             )
             shape.screen_coord = (new_coord_tuple)
         self.emit("shapesChanged")
+
+    def get_raw_image(self):
+        data = self.sc_channels["camera_raw_image"].get_value()
+        data_np_array = np.array(data, dtype='uint8')
+        height = self.camera.height
+        width = self.camera.width
+        shape = [height, width, 3]
+        img = data_np_array.reshape(shape[0], shape[1], shape[2])
+        img[:, :, [2, 0]] = img[:, :, [0, 2]]
+        return img
+
+    def get_next_run_number(self, png_file_path_placeholder):
+        return len(glob.glob(png_file_path_placeholder))
+
+    def save_png_with_point_labels(self, png_file_path):
+        raw_img = self.get_raw_image()
+        img = raw_img.copy(order="C")
+        h, w = img.shape[:2]
+        marker_color = (0, 255, 0)
+        text_color = (0, 255, 0)
+        outline_color = (0, 0, 0)
+        marker_size = max(12, w // 60)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = max(0.5, w / 1600)
+        thickness = max(1, w // 800)
+        for point in self.get_points():
+            shape = self.get_shape(point.id)
+            shape_dict = to_camel(shape.as_dict())
+            x, y = shape_dict["screenCoord"][:2]
+            x, y = int(round(x)), int(round(y))
+            point_number = int(shape_dict["id"].replace("2DP", ""))
+            if not (0 <= x < w and 0 <= y < h):
+                logging.getLogger("HWR").warning(
+                    f"Point {point_number} at ({x}, {y}) is outside the image ({w}x{h})"
+                )
+                continue
+            cv2.drawMarker(img, (x, y), outline_color, cv2.MARKER_CROSS,
+                        marker_size, thickness + 2)
+            cv2.drawMarker(img, (x, y), marker_color, cv2.MARKER_CROSS,
+                        marker_size, thickness)
+            label = str(point_number)
+            text_pos = (x + marker_size // 2 + 4, y - marker_size // 2)
+            cv2.putText(img, label, text_pos, font, font_scale, outline_color,
+                        thickness + 2, cv2.LINE_AA)
+            cv2.putText(img, label, text_pos, font, font_scale, text_color,
+                        thickness, cv2.LINE_AA)
+        if not cv2.imwrite(png_file_path, img):
+            raise IOError(f"Failed to write {png_file_path}")
+        return png_file_path
+
+    def save_points_and_snapshot_to_png(self):
+        try:
+            mxcollect = HWR.beamline.get_object_by_role('collect')
+            session = HWR.beamline.get_object_by_role('session')
+            base_image_directory = session.get_base_image_directory()
+            multi_points_collections_dir = f"{base_image_directory}/multi_points_collections".replace("/data/", "/proc/")
+            os.makedirs(multi_points_collections_dir, exist_ok=True)
+            png_file_path_placeholder = f"{multi_points_collections_dir}/multi_points_run*.png"
+            next_run_number = self.get_next_run_number(png_file_path_placeholder)
+            png_file_path = f"{multi_points_collections_dir}/multi_points_run{next_run_number}.png"
+            json_file_path = f"{multi_points_collections_dir}/multi_points_run{next_run_number}.json"
+            self.save_png_with_point_labels(png_file_path)
+            return json_file_path
+        except Exception:
+            logging.getLogger("HWR").debug("save_points_and_snapshot_to_png failed", exc_info=True)
+            return None
