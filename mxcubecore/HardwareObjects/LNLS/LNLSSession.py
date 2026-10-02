@@ -26,6 +26,10 @@ class LNLSSession(Session):
         HWR.beamline.session.proposal_number = None
         HWR.beamline.session.proposal_code = None
         HWR.beamline.session.proposal_id = None
+        HWR.beamline.lims.investigations = None
+        HWR.beamline.lims._icat_client_dict = {}
+        HWR.beamline.lims._active_user = None
+        HWR.beamline.lims._icat_session_dict = {}
 
     def get_default_subdir(self, sample_data: dict) -> str:
         try:
