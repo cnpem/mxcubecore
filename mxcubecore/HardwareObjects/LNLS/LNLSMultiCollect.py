@@ -94,10 +94,10 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
         print(f"\nplan_params: {plan_params}\n")
 
-        #self._bluesky_api.execute_plan(
-        #    plan_name="flyscan",
-        #    kwargs=plan_params
-        #)
+        self._bluesky_api.execute_plan(
+            plan_name="flyscan",
+            kwargs=plan_params
+        )
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer
@@ -353,7 +353,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
     def do_collect(self, owner, data_collect_parameters):
 
-        if self.multi_crystals:
+        if False:
             experiment_type = data_collect_parameters["experiment_type"]
             sv = HWR.beamline.get_object_by_role("sample_view")
             beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
@@ -378,15 +378,16 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 print("Sample Name: {}".format(data_collect_parameters["sample_reference"]["sample_name"]))
                 print("Sample Acronym: {}".format(data_collect_parameters["sample_reference"]["acronym"]))
                 print(f"Point ID: {self.point_id}\n")
-                self.flyscan_procedure(owner, data_collect_parameters)
+                #self.flyscan_procedure(owner, data_collect_parameters)
                 self.point_id = self.point_id + 1
-        #else:
-            #if experiment_type == "OSC":
-            #    self.flyscan_procedure(owner, data_collect_parameters)
-            #    self.perform_xlsx_request(data_collect_parameters)
-            #    self.notify_adxv_server()
-            #elif experiment_type == "Mesh":
-            #    self.gridscan_procedure(owner, data_collect_parameters)
-            #    self.notify_adxv_server()
-            #elif experiment_type == "Helical":
-            #    self.helical_scan_procedure(owner, data_collect_parameters)
+        else:
+            experiment_type = data_collect_parameters["experiment_type"]
+            if experiment_type == "OSC":
+                self.flyscan_procedure(owner, data_collect_parameters)
+                self.perform_xlsx_request(data_collect_parameters)
+                self.notify_adxv_server()
+            elif experiment_type == "Mesh":
+                self.gridscan_procedure(owner, data_collect_parameters)
+                self.notify_adxv_server()
+            elif experiment_type == "Helical":
+                self.helical_scan_procedure(owner, data_collect_parameters)
