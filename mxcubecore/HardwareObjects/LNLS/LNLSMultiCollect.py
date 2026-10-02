@@ -29,8 +29,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
     epics:
         "MNC:B:PILATUS4_4M:cam1:":
             channels:
-                detector_sequence_id:
-                    suffix: "SequenceId"
+            full_file_name:
+                suffix: "FullFileName_RBV"
     configuration:
         auto_processing:
             program: []
@@ -300,22 +300,11 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         logging.getLogger("HWR").info(f"\n{cplist}\n")
         logging.getLogger("HWR").info(f"\n{data_collect_parameters}\n")
 
-    def get_detector_sequence_id(self):
-        sequence_id = (
-            int(self.mx_collect_channels["detector_sequence_id"].get_value()) + 1
-        )
-        return sequence_id
-
-    def get_file_abs_path(self, data_collect_parameters):
-        cb = int(data_collect_parameters["fileinfo"]["run_number"])
-        cb = f"{cb:04d}"
-        sequence_id = self.get_detector_sequence_id()
-        prefix = data_collect_parameters["fileinfo"]["prefix"]
-        file_name = f"{prefix}_{cb}_{sequence_id}_master.h5"
-        file_path = data_collect_parameters["fileinfo"]["directory"]
-        file_abs_path = f"{file_path}/{file_name}"
-        file_abs_path = file_abs_path.replace("//", "/")
-        return file_abs_path
+    def get_master_full_file_name(self):
+        full_file_name = self.mx_collect_channels["full_file_name"].get_value()
+        if not full_file_name.endswith("_master.h5"):
+            full_file_name = '_data_'.join(full_file_name.split('_data_')[0:-1]) + "_master.h5"
+        return full_file_name
 
     def perform_xlsx_request(self, data_collect_parameters):
         try:
@@ -324,7 +313,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             bc = round(self.machine_info.get_current(), 6)
             cb = int(data_collect_parameters["fileinfo"]["run_number"])
             cb = f"{cb:04d}"
-            file_abs_path = self.get_file_abs_path(data_collect_parameters)
+            file_abs_path = self.get_master_full_file_name()
             logging.getLogger("HWR").info(f"filename is {file_abs_path}")
             timeout_seconds = 3
             dataFromMxcube = data_collect_parameters
@@ -359,7 +348,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").info(f"Error trying to send info: {e}")
             logging.getLogger("HWR").info("Collection will still happen")
 
-    def notify_adxv_server(self, file_abs_path):
+    def notify_adxv_server(self):
+        file_abs_path = self.get_master_full_file_name()
         try:
             timeout_seconds = 2
             url = "http://10.31.74.56:5005/open"
@@ -373,16 +363,13 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").info(f"Error trying to notify adxv server: {e}")
 
     def do_collect(self, owner, data_collect_parameters):
-        # self.perform_xlsx_request(data_collect_parameters)
         experiment_type = data_collect_parameters["experiment_type"]
         if experiment_type == "OSC":
-            file_abs_path = self.get_file_abs_path(data_collect_parameters)
             self.flyscan_procedure(owner, data_collect_parameters)
-            self.notify_adxv_server(file_abs_path)
+            self.perform_xlsx_request(data_collect_parameters)
+            self.notify_adxv_server()
         elif experiment_type == "Mesh":
-            file_abs_path = self.get_file_abs_path(data_collect_parameters)
-            print(f"\nfile_abs_path is {file_abs_path}\n")
             self.gridscan_procedure(owner, data_collect_parameters)
-            self.notify_adxv_server(file_abs_path)
+            self.notify_adxv_server()
         elif experiment_type == "Helical":
             self.helical_scan_procedure(owner, data_collect_parameters)
