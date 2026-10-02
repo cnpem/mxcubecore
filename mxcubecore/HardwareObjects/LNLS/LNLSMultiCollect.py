@@ -6,6 +6,8 @@ import os
 import time
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+import re
+import gevent
 
 import requests
 from mxcubeweb.core.util.convertutils import to_camel
@@ -59,6 +61,40 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.mx_collect_channels = self._CommandContainer__channels
         self.frontend_application = MXCUBEApplication
 
+    def _get_console_output(self, last_msg_uid="ALL"):
+        api = self._bluesky_api.api
+        response = requests.get(
+            api._url + api._console_path,
+            headers=api._headers,
+            json={"last_msg_uid": last_msg_uid},
+            timeout=api._default_timeout,
+        )
+        return api.format_response(response)
+
+    def last_line(self, messages, contains=None):
+        for msg in reversed(messages):
+            lines = [l.strip() for l in re.split(r"[\r\n]+", msg.get("msg", ""))]
+            for line in reversed(lines):
+                if line and (contains is None or contains in line):
+                    return line
+        return None
+
+    def emit_progress(self, total_number_of_images, last_msg_uid="ALL", poll_interval=0.5):
+        while True:
+            try:
+                output = self._get_console_output(last_msg_uid)
+                last_msg_uid = output["last_msg_uid"]
+                line = self.last_line(output["console_output_msgs"], contains="Flyscan: ")
+                if line and "%" in line:
+                    percentage = float(line.split("Flyscan: ")[1].split("%")[0])
+                    images_taken = int(total_number_of_images * percentage / 100)
+                    if images_taken >= total_number_of_images:
+                        images_taken = total_number_of_images - 1
+                    self.emit("collectImageTaken", images_taken)
+            except Exception:
+                logging.getLogger("HWR").debug("emit_progress failed", exc_info=True)
+            gevent.sleep(poll_interval)
+
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
@@ -93,10 +129,21 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
         print(f"\nplan_params: {plan_params}\n")
 
-        #self._bluesky_api.execute_plan(
-        #    plan_name="flyscan",
-        #    kwargs=plan_params
-        #)
+        try:
+            start_uid = self._get_console_output()["last_msg_uid"]
+        except Exception:
+            start_uid = "ALL"
+
+        print(f"start_uid is {start_uid}")
+
+        progress_task = gevent.spawn(self.emit_progress, num_of_points, start_uid)
+        try:
+            self._bluesky_api.execute_plan(
+                plan_name="flyscan",
+                kwargs=plan_params,
+            )
+        finally:
+            progress_task.kill(block=False)
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer
