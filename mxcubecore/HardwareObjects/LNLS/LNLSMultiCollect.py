@@ -63,7 +63,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
-        if self.multi_crystals:
+        if False:
             point_id = self.point_id
             file_name = f"{file_name}_p{point_id:04d}"
         start = float(
@@ -85,6 +85,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             "num_images": num_of_points,
             "snapshot_num": self.number_of_snapshots,
             "debug": True,
+            "run_data_processing": True,
         }
 
         if self.multi_crystals:
@@ -382,6 +383,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 self.point_id = self.point_id + 1
         else:
             experiment_type = data_collect_parameters["experiment_type"]
+            print(f"\n{data_collect_parameters}\n")
             if experiment_type == "OSC":
                 self.flyscan_procedure(owner, data_collect_parameters)
                 self.perform_xlsx_request(data_collect_parameters)
