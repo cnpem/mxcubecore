@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import time
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
@@ -50,22 +51,19 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.actual_frame_num = 0
         self.collection_id = None
         self.xds_directory = ""
+        self.multi_crystals = False
 
     def init(self):
         self.emit("collectConnected", (True,))
         self.emit("collectReady", (True,))
         self.mx_collect_channels = self._CommandContainer__channels
         self.frontend_application = MXCUBEApplication
-        self.multi_crystals = self.get_property("multi_crystals", False)
-        self.point_id = 0
 
     def flyscan_procedure(self, owner, data_collect_parameters):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
-        if False:
-            point_id = self.point_id
-            file_name = f"{file_name}_p{point_id:04d}"
+
         start = float(
             data_collect_parameters["oscillation_sequence"][0]["start"]
         )  # omega start pos
@@ -95,10 +93,10 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
         print(f"\nplan_params: {plan_params}\n")
 
-        self._bluesky_api.execute_plan(
-            plan_name="flyscan",
-            kwargs=plan_params
-        )
+        #self._bluesky_api.execute_plan(
+        #    plan_name="flyscan",
+        #    kwargs=plan_params
+        #)
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer
@@ -354,36 +352,33 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
 
     def do_collect(self, owner, data_collect_parameters):
 
-        if False:
-            experiment_type = data_collect_parameters["experiment_type"]
+        if self.multi_crystals:
+            print(f"\n{data_collect_parameters}\n")
+            shape_name = data_collect_parameters["position_name"]
             sv = HWR.beamline.get_object_by_role("sample_view")
-            beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
-            beam_center_x = beam_pos[0]
-            beam_center_y = beam_pos[1]
-            print("Center: ", beam_center_x, beam_center_y)
-            self.point_id = 0
-            previous_dx = 0
-            previous_dy = 0
             shapes = sv.get_shapes()
+            found_screen_coord = False
             for shape in shapes:
                 shape_dict = to_camel(shape.as_dict())
-                screen_coord = shape_dict["screenCoord"]
-                x = screen_coord[0] - previous_dx
-                y = screen_coord[1] - previous_dy
-                previous_dx = screen_coord[0] - beam_center_x
-                previous_dy = screen_coord[1] - beam_center_y
+                if shape_dict["name"] == shape_name:
+                    screen_coord = shape_dict["screenCoord"]
+                    found_screen_coord = True
+                    break
+
+            if found_screen_coord:
+                x = screen_coord[0]
+                y = screen_coord[1]
                 print(f"Moving to position: x={x}, y={y}")
-                #sv.move_to_beam(x, y)
-                print("Performing data collection:")
-                print("Directory: {}".format(data_collect_parameters["fileinfo"]["directory"]))
-                print("Sample Name: {}".format(data_collect_parameters["sample_reference"]["sample_name"]))
-                print("Sample Acronym: {}".format(data_collect_parameters["sample_reference"]["acronym"]))
-                print(f"Point ID: {self.point_id}\n")
-                #self.flyscan_procedure(owner, data_collect_parameters)
-                self.point_id = self.point_id + 1
+                sv.move_to_beam(x, y)
+                print("Performing data collection")
+                time.sleep(1)
+                self.flyscan_procedure(owner, data_collect_parameters)
+            else:
+                print(f"Could not locate point: {shape_name}")
+                print("No data collection will be performed")
+            print("\n\n")
         else:
             experiment_type = data_collect_parameters["experiment_type"]
-            print(f"\n{data_collect_parameters}\n")
             if experiment_type == "OSC":
                 self.flyscan_procedure(owner, data_collect_parameters)
                 self.perform_xlsx_request(data_collect_parameters)

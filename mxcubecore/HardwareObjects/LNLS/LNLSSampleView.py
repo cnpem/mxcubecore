@@ -6,7 +6,7 @@ from mxcubeweb.core.util.convertutils import to_camel
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
-from mxcubecore.HardwareObjects.SampleView import Grid, Point, SampleView
+from mxcubecore.HardwareObjects.SampleView import Grid, Point, SampleView, TwoDPoint
 
 
 class LNLSSampleView(SampleView):
@@ -164,7 +164,7 @@ class LNLSSampleView(SampleView):
 
     def _update_shape_positions(self, *args, **kwargs):
         for shape in self.get_shapes():
-            if not isinstance(shape, Grid):
+            if (not isinstance(shape, Grid)) and (not isinstance(shape, Point)) and (not isinstance(shape, TwoDPoint)):
                 shape.update_position(self.motor_positions_to_screen)
         self.emit("shapesChanged")
 
@@ -172,6 +172,7 @@ class LNLSSampleView(SampleView):
         return int(self.current_x_point), int(self.current_y_point)
 
     def update_points_from_beamline_action(self, *args, **kwargs):
+        print("\nVeio em update_points_from_beamline_action\n")
         for shape in self.get_shapes():
             if isinstance(shape, Point):
                 shape_dict = to_camel(shape.as_dict())
@@ -192,7 +193,7 @@ class LNLSSampleView(SampleView):
             shape_dict = to_camel(shape.as_dict())
             previous_coord = shape_dict["screenCoord"]
             new_coord = [
-                (previous_coord[0] - pixel_diff_x),
+                previous_coord[0] - pixel_diff_x,
                 previous_coord[1] - pixel_diff_y,
             ]
             shape_dict["screenCoord"] = new_coord
@@ -205,3 +206,15 @@ class LNLSSampleView(SampleView):
             )
             self.emit("shapesChanged")
 
+    def update_point_positions(self, pixel_diff_x, pixel_diff_y):
+        points_list = self.get_points()
+        for point in points_list:
+            shape = self.get_shape(point.id)
+            shape_dict = to_camel(shape.as_dict())
+            previous_coord = shape_dict["screenCoord"]
+            new_coord_tuple = (
+                previous_coord[0] - pixel_diff_x,
+                previous_coord[1] - pixel_diff_y,
+            )
+            shape.screen_coord = (new_coord_tuple)
+        self.emit("shapesChanged")
