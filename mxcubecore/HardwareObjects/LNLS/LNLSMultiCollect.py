@@ -425,7 +425,15 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
     def do_collect(self, owner, data_collect_parameters):
 
         if self.multi_crystals:
+            print(data_collect_parameters)
             shape_name = data_collect_parameters["position_name"]
+
+            if shape_name is None:
+                logging.getLogger("HWR").info("This collection does not have a point attributed to it")
+                logging.getLogger("HWR").info("Performing data collection without moving to beam")
+                self.flyscan_procedure(owner, data_collect_parameters)
+                return
+
             sv = HWR.beamline.get_object_by_role("sample_view")
             shapes = sv.get_shapes()
             found_screen_coord = False
@@ -437,6 +445,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                     break
 
             if found_screen_coord:
+                logging.getLogger("HWR").info(f"Moving to point: {shape_name}")
                 x = screen_coord[0]
                 y = screen_coord[1]
                 sv.move_to_beam(x, y)

@@ -52,3 +52,6 @@ class LNLSLIMS(ICATLIMS):
 
     def finalize_data_collection(self, data_collect_parameters):
         return
+
+    def store_robot_action(self, proposal_id: str):
+        return

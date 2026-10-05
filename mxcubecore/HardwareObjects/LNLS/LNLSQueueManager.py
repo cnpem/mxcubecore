@@ -38,12 +38,30 @@ class LNLSQueueManager(QueueManager):
             logging.getLogger("HWR").info("Multiple Points Data Collection")
             data_model_children_list = self._queue_entry_list[0].get_data_model().get_children()
             number_of_points = len(data_model_children_list)
-            logging.getLogger("HWR").info(f"Number of Points: {number_of_points}")
-            sample_view = HWR.beamline.get_object_by_role("sample_view")
-            json_file_path, points_snapshots_folder = sample_view.save_points_and_snapshot_to_png()
-            mxcollect.multi_crystals = True
-            mxcollect.current_json_path = json_file_path
-            mxcollect.current_points_snapshots_folder = points_snapshots_folder
+            print("number_of_points: ", number_of_points)
+
+            sample_names_list = []
+            for qe in self._queue_entry_list:
+                for item in qe.get_data_model().get_children():
+                    sample_name = item.get_sample_node().get_name()
+                    print("sample_name at sample search: ", sample_name)
+                    if sample_name not in sample_names_list:
+                        sample_names_list.append(sample_name)
+            number_of_samples = len(sample_names_list)
+            print("number_of_samples: ", number_of_samples)
+
+            if (number_of_samples > 1) and (number_of_points == 1):
+                logging.getLogger("HWR").info("More than one sample will be collected!")
+                mxcollect.multi_crystals = False
+                mxcollect.current_json_path = None
+                mxcollect.current_points_snapshots_folder = None
+            else:
+                logging.getLogger("HWR").info(f"Number of Points: {number_of_points}")
+                sample_view = HWR.beamline.get_object_by_role("sample_view")
+                json_file_path, points_snapshots_folder = sample_view.save_points_and_snapshot_to_png()
+                mxcollect.multi_crystals = True
+                mxcollect.current_json_path = json_file_path
+                mxcollect.current_points_snapshots_folder = points_snapshots_folder
         else:
             logging.getLogger("HWR").info("Single Point Data Collection")
             mxcollect.multi_crystals = False

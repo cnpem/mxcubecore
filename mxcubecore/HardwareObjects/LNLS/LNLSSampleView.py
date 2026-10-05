@@ -289,6 +289,10 @@ class LNLSSampleView(SampleView):
             os.makedirs(multi_points_collections_dir, exist_ok=True)
 
             current_sample = sample_changer.frontend_application.lims.get_current_sample()
+
+            if current_sample == {}:
+                return None, None
+
             if current_sample['location'] == 'Manual':
                 protein_acronym = current_sample['proteinAcronym']
                 sample_name = current_sample['sampleName']
