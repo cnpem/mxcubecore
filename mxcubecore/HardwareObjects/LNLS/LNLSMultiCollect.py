@@ -53,9 +53,6 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.actual_frame_num = 0
         self.collection_id = None
         self.xds_directory = ""
-        self.multi_crystals = False
-        self.current_json_path = None
-        self.current_points_snapshots_folder = None
 
     def init(self):
         self.emit("collectConnected", (True,))
@@ -97,11 +94,10 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 logging.getLogger("HWR").debug("emit_progress failed", exc_info=True)
             gevent.sleep(poll_interval)
 
-    def register_result_at_json_path(self, file_abs_path, point_number):
+    def register_result_at_json_path(self, file_abs_path, point_number, json_path):
         try:
             sample_view = HWR.beamline.get_object_by_role("sample_view")
             omega, phiy, phiz, sampx, sampy = sample_view.get_current_diffractometer_positions()
-            json_path = self.current_json_path
             data = {}
             if os.path.isfile(json_path):
                 try:
@@ -125,16 +121,16 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").debug("register_result_at_json_path failed", exc_info=True)
             return None
 
-    def take_current_point_snapshot(self, point_number):
+    def take_current_point_snapshot(self, point_number, points_snapshots_folder):
         try:
-            png_file_path = f"{self.current_points_snapshots_folder}/point_{point_number}.png"
+            png_file_path = f"{points_snapshots_folder}/point_{point_number}.png"
             sample_view = HWR.beamline.get_object_by_role("sample_view")
             sample_view.save_png_with_point_labels(png_file_path, add_beam_center=True)
         except Exception:
             logging.getLogger("HWR").debug("take_current_point_snapshot failed", exc_info=True)
             return None
 
-    def flyscan_procedure(self, owner, data_collect_parameters):
+    def flyscan_procedure(self, owner, data_collect_parameters, is_multi_crystals=False, points_snapshots_folder=None, json_path=None):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
@@ -161,20 +157,23 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             "run_data_processing": True,
         }
 
-        if self.multi_crystals:
-            plan_params["reset_omega"] = False
+        if is_multi_crystals:
+            plan_params["reset_omega"] = True
             plan_params["snapshot_num"] = 0
             plan_params["post_close_cover"] = False
+            plan_params["start"] = plan_params["start"] - (plan_params["angle_increment"] * plan_params["num_images"])/2
 
-        if self.multi_crystals and self.current_points_snapshots_folder:
+        if is_multi_crystals and points_snapshots_folder:
             shape_name = data_collect_parameters["position_name"]
             point_number = shape_name.replace("2D-Point-", "")
-            self.take_current_point_snapshot(point_number)
+            self.take_current_point_snapshot(point_number, points_snapshots_folder)
 
         try:
             start_uid = self._get_console_output()["last_msg_uid"]
         except Exception:
             start_uid = "ALL"
+
+        print(f"\nPLAN_PARAMS: {plan_params}\n")
 
         progress_task = gevent.spawn(self.emit_progress, num_of_points, start_uid)
         try:
@@ -185,11 +184,11 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         finally:
             progress_task.kill(block=False)
 
-        if self.multi_crystals and self.current_json_path:
+        if is_multi_crystals and json_path:
             file_abs_path = self.get_master_full_file_name()
             shape_name = data_collect_parameters["position_name"]
             point_number = shape_name.replace("2D-Point-", "")
-            self.register_result_at_json_path(file_abs_path, point_number)
+            self.register_result_at_json_path(file_abs_path, point_number, json_path)
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer
@@ -412,7 +411,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         file_abs_path = self.get_master_full_file_name()
         try:
             timeout_seconds = 2
-            url = "http://10.31.74.56:5005/open"
+            url = "http://10.39.50.105/web-puck-id/api/open"
             payload = {"path": file_abs_path}
             response = requests.post(url, json=payload, timeout=timeout_seconds)  # noqa: F841
         except requests.exceptions.Timeout:
@@ -423,46 +422,17 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             logging.getLogger("HWR").info(f"Error trying to notify adxv server: {e}")
 
     def do_collect(self, owner, data_collect_parameters):
+        experiment_type = data_collect_parameters["experiment_type"]
+        if experiment_type == "OSC":
+            self.flyscan_procedure(owner, data_collect_parameters)
+            self.perform_xlsx_request(data_collect_parameters)
+            self.notify_adxv_server()
+        elif experiment_type == "Mesh":
+            self.gridscan_procedure(owner, data_collect_parameters)
+            self.notify_adxv_server()
+        elif experiment_type == "Helical":
+            self.helical_scan_procedure(owner, data_collect_parameters)
 
-        if self.multi_crystals:
-            print(data_collect_parameters)
-            shape_name = data_collect_parameters["position_name"]
-
-            if shape_name is None:
-                logging.getLogger("HWR").info("This collection does not have a point attributed to it")
-                logging.getLogger("HWR").info("Performing data collection without moving to beam")
-                self.flyscan_procedure(owner, data_collect_parameters)
-                return
-
-            sv = HWR.beamline.get_object_by_role("sample_view")
-            shapes = sv.get_shapes()
-            found_screen_coord = False
-            for shape in shapes:
-                shape_dict = to_camel(shape.as_dict())
-                if shape_dict["name"] == shape_name:
-                    screen_coord = shape_dict["screenCoord"]
-                    found_screen_coord = True
-                    break
-
-            if found_screen_coord:
-                logging.getLogger("HWR").info(f"Moving to point: {shape_name}")
-                x = screen_coord[0]
-                y = screen_coord[1]
-                sv.move_to_beam(x, y)
-                logging.getLogger("HWR").info("Performing data collection")
-                time.sleep(1)
-                self.flyscan_procedure(owner, data_collect_parameters)
-            else:
-                logging.getLogger("HWR").info(f"Could not locate point: {shape_name}")
-                logging.getLogger("HWR").info("No data collection will be performed")
-        else:
-            experiment_type = data_collect_parameters["experiment_type"]
-            if experiment_type == "OSC":
-                self.flyscan_procedure(owner, data_collect_parameters)
-                self.perform_xlsx_request(data_collect_parameters)
-                self.notify_adxv_server()
-            elif experiment_type == "Mesh":
-                self.gridscan_procedure(owner, data_collect_parameters)
-                self.notify_adxv_server()
-            elif experiment_type == "Helical":
-                self.helical_scan_procedure(owner, data_collect_parameters)
+    def do_collect_multicrystals(self, owner, data_collect_parameters, points_snapshots_folder, json_path):
+        self.flyscan_procedure(owner, data_collect_parameters, is_multi_crystals=True, points_snapshots_folder=points_snapshots_folder, json_path=json_path)
+        self.perform_xlsx_request(data_collect_parameters)

@@ -1,7 +1,8 @@
-from mxcubecore import HardwareRepository as HWR
-from mxcubecore.HardwareObjects.QueueManager import QueueManager
-
 import logging
+
+from mxcubecore import queue_entry
+from mxcubecore.HardwareObjects.QueueManager import QueueManager
+from mxcubecore import HardwareRepository as HWR
 
 
 class LNLSQueueManager(QueueManager):
@@ -14,65 +15,46 @@ class LNLSQueueManager(QueueManager):
     %YAML 1.2
     ---
     class: LNLS.LNLSQueueManager.LNLSQueueManager
-    configuration: {}
+    configuration:
+      site_entry_path: LNLS
     """
 
     def init(self):
         super().init()
-        self._bluesky_api = HWR.beamline.get_object_by_role("bluesky")
-
-    def pause(self, state):
-        if state:
-            self._bluesky_api.pause()
-        else:
-            self._bluesky_api.resume()
-        self.set_pause(state)
-
-    def stop(self):
-        self._bluesky_api.abort()
-        super().stop()
+        self.json_path = None
+        self.points_snapshots_folder = None
 
     def execute(self, entry=None):
-        mxcollect = HWR.beamline.get_object_by_role('collect')
-        if not entry:
-            logging.getLogger("HWR").info("Multiple Points Data Collection")
-            data_model_children_list = self._queue_entry_list[0].get_data_model().get_children()
-            number_of_points = len(data_model_children_list)
-            print("number_of_points: ", number_of_points)
+        roots = [entry] if entry is not None else self.get_queue_entry_list()
+        mc_entries = self.find_entries(roots, "LnlsMultiCrystalsCollectionQueueEntry")
 
-            sample_names_list = []
-            for qe in self._queue_entry_list:
-                for item in qe.get_data_model().get_children():
-                    sample_name = item.get_sample_node().get_name()
-                    print("sample_name at sample search: ", sample_name)
-                    if sample_name not in sample_names_list:
-                        sample_names_list.append(sample_name)
-            number_of_samples = len(sample_names_list)
-            print("number_of_samples: ", number_of_samples)
+        if mc_entries:
+            logging.getLogger("HWR").info(f"{len(mc_entries)} multi-crystals collection(s) will run")
+            sv = HWR.beamline.get_object_by_role('sample_view')
+            json_path, points_snapshots_folder = sv.save_points_and_snapshot_to_png()
+            self.json_path = json_path
+            self.points_snapshots_folder = points_snapshots_folder
 
-            if (number_of_samples > 1) and (number_of_points == 1):
-                logging.getLogger("HWR").info("More than one sample will be collected!")
-                mxcollect.multi_crystals = False
-                mxcollect.current_json_path = None
-                mxcollect.current_points_snapshots_folder = None
-            else:
-                logging.getLogger("HWR").info(f"Number of Points: {number_of_points}")
-                sample_view = HWR.beamline.get_object_by_role("sample_view")
-                json_file_path, points_snapshots_folder = sample_view.save_points_and_snapshot_to_png()
-                mxcollect.multi_crystals = True
-                mxcollect.current_json_path = json_file_path
-                mxcollect.current_points_snapshots_folder = points_snapshots_folder
-        else:
-            logging.getLogger("HWR").info("Single Point Data Collection")
-            mxcollect.multi_crystals = False
-            mxcollect.current_json_path = None
-            mxcollect.current_points_snapshots_folder = None
         super().execute(entry)
 
-    def __execute_task(self):
-        super().__execute_task()
-        mxcollect = HWR.beamline.get_object_by_role('collect')
-        mxcollect.multi_crystals = False
-        mxcollect.current_json_path = None
-        mxcollect.current_points_snapshots_folder = None
-        logging.getLogger("HWR").info("End of task and end of data collection")
+    @staticmethod
+    def find_entries(roots, class_name):
+
+        cls = getattr(queue_entry, class_name, None)
+        if cls is None:
+            return []
+
+        found = []
+
+        def walk(e):
+            if not e.is_enabled():
+                return
+            if isinstance(e, cls) and not e.get_data_model().is_executed():
+                found.append(e)
+            for child in e.get_queue_entry_list():
+                walk(child)
+
+        for root in roots:
+            walk(root)
+
+        return found

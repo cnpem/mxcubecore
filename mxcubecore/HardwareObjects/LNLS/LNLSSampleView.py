@@ -312,9 +312,9 @@ class LNLSSampleView(SampleView):
             png_file_path = f"{run_folder}/{sample_name}.png"
             self.save_png_with_point_labels(png_file_path)
 
-            json_file_path = f"{run_folder}/{sample_name}.json"
+            json_path = f"{run_folder}/{sample_name}.json"
 
-            return json_file_path, points_snapshots_folder
+            return json_path, points_snapshots_folder
 
         except Exception:
             logging.getLogger("HWR").debug("save_points_and_snapshot_to_png failed", exc_info=True)

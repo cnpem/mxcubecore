@@ -3,6 +3,9 @@ from mxcubecore.BaseHardwareObjects import HardwareObjectState
 from mxcubecore.HardwareObjects.abstract import AbstractSampleChanger
 from mxcubecore.HardwareObjects.BeamlineActions import BeamlineActions
 import requests
+from enum import Enum
+import time
+import logging
 
 
 class LNLSBaseAction:
@@ -145,7 +148,18 @@ class MountAction(LNLSSampleChangerAction):
 
 class DetectCrystals(LNLSBaseAction):
 
+    def check_backlightswitch(self):
+        d = HWR.beamline.get_object_by_role("diffractometer")
+        value = d.backlightswitch.get_value()
+        if isinstance(value, Enum):
+            value = value.value
+        return value
+
     def detect_crystals(self):
+        if not self.check_backlightswitch():
+            logging.getLogger("user_level_log").info("Please raise backlight before trying to detect crystals.")
+            logging.getLogger("user_level_log").info("We have X-ray beam, not X-ray vision...")
+            return []
         url = HWR.beamline.get_object_by_role("sample_view").crystal_detection_url
         payload = {"conf": 0.5, "max_det": 300}
         response = requests.post(url, json=payload)
@@ -160,9 +174,6 @@ class DetectCrystals(LNLSBaseAction):
         sv = HWR.beamline.get_object_by_role("sample_view")
         motor_positions = sv.get_positions()
         centers = self.detect_crystals()
-        centers.append([500, 600])
-        centers.append([550, 600])
-        centers.append([600, 600])
 
         if centers:
             for center in centers:
