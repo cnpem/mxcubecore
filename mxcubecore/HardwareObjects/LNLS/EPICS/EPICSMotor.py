@@ -179,7 +179,7 @@ class LNLSSampleMotor(LNLSRestrictedMotor):
         super().init()
         self.previous_value = None
 
-    def update_grid_value(self, value=None):
+    def update_shapes_positions(self, value=None):
         previous_value = self.previous_value
         current_value = self.get_value()
         self.previous_value = current_value
@@ -190,7 +190,9 @@ class LNLSSampleMotor(LNLSRestrictedMotor):
                 pxpmm = d.get_pixels_per_mm()[0]
                 pixel_diff_x = pxpmm * diff
                 HWR.beamline.sample_view.update_grid_positions(pixel_diff_x, 0)
+                HWR.beamline.sample_view.update_point_positions(pixel_diff_x, 0)
             elif self.name == "sampy":
                 pxpmm = d.get_pixels_per_mm()[1]
                 pixel_diff_y = pxpmm * diff
                 HWR.beamline.sample_view.update_grid_positions(0, -pixel_diff_y)
+                HWR.beamline.sample_view.update_point_positions(0, -pixel_diff_y)
