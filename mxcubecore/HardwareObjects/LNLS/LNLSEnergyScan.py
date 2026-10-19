@@ -1,4 +1,4 @@
-import os
+import glob
 import time
 
 import gevent
@@ -58,7 +58,6 @@ class LNLSEnergyScan(AbstractEnergyScan):
         self.energy_scan_parameters["element"] = element
         self.energy_scan_parameters["edge"] = edge
         self.energy_scan_parameters["directory"] = directory
-        os.makedirs(directory, exist_ok=True)
         self.energy_scan_parameters["prefix"] = prefix
         if session_id is not None:
             self.energy_scan_parameters["sessionId"] = session_id
@@ -67,11 +66,15 @@ class LNLSEnergyScan(AbstractEnergyScan):
                 "%Y-%m-%d %H:%M:%S"
             )
 
+        collection_number = len(glob.glob(f"{directory}/{prefix}*.nxs")) + 1
+        collection_number = f"{collection_number:05d}"
+        file_name = f"{prefix}_{collection_number}"
+
         plan_kwargs = {
             "element": element,
             "edge": edge,
             "file_path": directory,
-            "file_name": prefix,
+            "file_name": file_name,
             "num_steps": 200,
         }
 
