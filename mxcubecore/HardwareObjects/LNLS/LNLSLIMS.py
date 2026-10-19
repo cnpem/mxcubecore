@@ -9,6 +9,7 @@ class LNLSLIMS(ICATLIMS):
         self.ingesters = self.get_property("queue_urls")
         self.investigations = []
         self.samples = []
+        self._last_login_user = None
 
     def _create_icat_client(self):
         return IcatClient(
@@ -34,7 +35,6 @@ class LNLSLIMS(ICATLIMS):
 
     def login(self, user_name, token, is_local_host):
         self.is_local_host = is_local_host
-        self.session_manager.active_session = None
         session_manager, icat_session, sessions = super().login(
             user_name, token, self.session_manager
         )
@@ -44,8 +44,17 @@ class LNLSLIMS(ICATLIMS):
             single_session = self.session_manager.sessions[0]
             self.set_active_session_by_id(single_session.session_id)
 
-        self.session_manager.active_session = None
+        self._last_login_user = user_name
         return session_manager
+
+    def _last_login_session(self):
+        return self._icat_session_dict.get(self._last_login_user) or self.icat_session
+
+    def get_user_name(self):
+        return self._last_login_session().username
+
+    def get_full_user_name(self):
+        return self._last_login_session().full_name
 
     def get_active_lims(self):
         return self.get_lims_name()[0]
