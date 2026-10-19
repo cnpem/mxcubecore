@@ -170,10 +170,23 @@ class DetectCrystals(LNLSBaseAction):
             centers = []
         return centers
 
+    def reorder_by_distance(self, centers):
+        if not centers:
+            return []
+        ordered = [centers[0]]
+        remaining = centers[1:]
+        while remaining:
+            current = ordered[-1]
+            min_idx = min(range(len(remaining)), 
+                        key=lambda p: (remaining[p][0] - current[0])**2 + (remaining[p][1] - current[1])**2)
+            ordered.append(remaining.pop(min_idx))
+        return ordered
+
     def __call__(self, *args, **kwargs):
         sv = HWR.beamline.get_object_by_role("sample_view")
         motor_positions = sv.get_positions()
         centers = self.detect_crystals()
+        centers = self.reorder_by_distance(centers)
 
         if centers:
             for center in centers:
