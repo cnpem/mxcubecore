@@ -18,7 +18,133 @@ class LNLSSampleView(SampleView):
         self.READY_FOR_NEXT_CLICK = gevent.event.Event()
         self.x, self.y = None, None
         self.frontend_application = frontendApplication
+        self.current_centring_method = None
+
+    def move_to_beam_bluesky(self, x, y, plan_name, step = -1):
+        beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+        plan_kwargs = {
+            "x_px": beam_pos[0] - x,
+            "y_px": y - beam_pos[1],
+        }
+        if step != -1:
+            plan_kwargs["step"] = step
+        self._bluesky_api.execute_plan(
+            plan_name=plan_name,
+            kwargs=plan_kwargs
+        )
+
+    def move_to_beam(self, x, y):
+        if self.sc.get_state() != SampleChangerState.Ready:
+            return
+        self.user_level_log.info("Moving to beam...")
+        self.move_to_beam_bluesky(x, y, "move_to_beam")
+        self.user_level_log.info("Move to beam has finished...")
+
+    def start_centring(self, centring_method):
+        self.current_centring_method = centring_method
+        self.current_centring_procedure = centring_method
+        self.emit("centringStarted", (centring_method))
+
+    def finish_centring(self):
+        self.centring_status["valid"] = True
+        omega, phiy, phiz, sampx, sampy = self.get_current_diffractometer_positions()
+        self.centring_status["motors"] = {
+            "omega": omega,
+            "phiy": phiy,
+            "phiz": phiz,
+            "sampx": sampx,
+            "sampy": sampy,
+        }
+        self.emit("centringSuccessful", (self.current_centring_method, self.get_centring_status()))
+        if self.current_centring_method == "Manual":
+            self.shapes.clear()
+            self.frontend_application.server.emit(
+                "update_shapes", {"shapes": self.shapes}, namespace="/hwr"
+            )
+            self.frontend_application.server.emit("abort_centring", namespace="/hwr")
         self.current_centring_procedure = None
+        self.current_centring_method = None
+
+    def start_auto_centring(self):
+        self.user_level_log.info("Initializing automatic sample alignment...")
+        if self.current_centring_method is not None:
+            self.user_level_log.info("Already centring")
+            return
+        self.start_centring("Automatic")
+        self._bluesky_api.execute_plan(plan_name="automatic_alignment")
+        self.user_level_log.info("Automatic sample alignment has finished...")
+        self.finish_centring()
+
+    def image_clicked(self, x, y):
+        logging.getLogger("user_level_log").info(
+            f"LNLS Centring click at x:{int(x)}, y:{int(y)}"
+        )
+        self.x = x
+        self.y = y
+        self.READY_FOR_NEXT_CLICK.set()
+
+    def start_manual_centring(self, nb_click: int = 3):
+        if self.sc.get_state() != SampleChangerState.Ready:
+            return
+        self.user_level_log.info("Initializing manual sample alignment...")
+        if self.current_centring_method is not None:
+            self.user_level_log.info("Already centring")
+            return
+        self.start_centring("Manual")
+        for step in range(3):
+            self.READY_FOR_NEXT_CLICK.clear()
+            self.READY_FOR_NEXT_CLICK.wait()
+            beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+            if (self.x is not None) and (self.y is not None):
+                self.move_to_beam_bluesky(self.x, self.y, "manual_alignment", step)
+                self.x = None
+                self.y = None
+        self.user_level_log.info("Manual sample alignment has finished...")
+        self.finish_centring()
+
+    def get_snapshot(self):
+        return None
+
+    def _wait_for_centring_finishes(self):
+        return
+
+    def get_current_diffractometer_positions(self):
+        d = HWR.beamline.diffractometer
+        omega = d.omega.get_value()
+        phiy = d.phiy.get_value()
+        phiz = d.phiz.get_value()
+        sampx = d.sampx.get_value()
+        sampy = d.sampy.get_value()
+        return omega, phiy, phiz, sampx, sampy
+
+    def get_current_mm_per_pixel(self):
+        d = HWR.beamline.diffractometer
+        zoom_enum = d.zoom.get_value()
+        current_zoom = zoom_enum.name
+        mm_per_pixel_x = d.zoom.get_property("mm_per_pixel_x")[current_zoom]
+        mm_per_pixel_y = d.zoom.get_property("mm_per_pixel_y")[current_zoom]
+        return mm_per_pixel_x, mm_per_pixel_y
+
+
+    def get_centred_point_from_coord(self, x, y, return_by_names=None):
+        omega, phiy, phiz, sampx, sampy = self.get_current_diffractometer_positions()
+
+        beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
+        x_px = beam_pos[0] - x
+        y_px = y - beam_pos[1]
+
+        mm_per_pixel_x, mm_per_pixel_y = self.get_current_mm_per_pixel()
+
+        sampx = sampx + x_px * mm_per_pixel_x
+        sampy = sampy + y_px * mm_per_pixel_y
+
+        return {
+            "omega": omega,
+            "phiy": phiy,
+            "phiz": phiz,
+            "sampx": sampx,
+            "sampy": sampy,
+        }
 
     def _update_shape_positions(self, *args, **kwargs):
         for shape in self.get_shapes():
@@ -47,130 +173,3 @@ class LNLSSampleView(SampleView):
             )
             self.emit("shapesChanged")
 
-    def move_to_beam(self, x, y):
-        if self.sc.get_state() != SampleChangerState.Ready:
-            return
-        self.user_level_log.info("Moving to beam...")
-
-        beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
-        self._bluesky_api.execute_plan(
-            plan_name="move_to_beam",
-            kwargs={
-                "x_px": beam_pos[0] - x,
-                "y_px": y - beam_pos[1],
-            },
-        )
-        self.user_level_log.info("Move to beam has finished...")
-
-    def image_clicked(self, x, y):
-        logging.getLogger("user_level_log").info(
-            f"LNLS Centring click at x:{int(x)}, y:{int(y)}"
-        )
-        self.x = x
-        self.y = y
-        self.READY_FOR_NEXT_CLICK.set()
-
-    def start_manual_centring(self, nb_click: int = 3):
-        if self.sc.get_state() != SampleChangerState.Ready:
-            return
-        self.user_level_log.info("Initializing manual sample alignment...")
-        if self.current_centring_procedure is not None:
-            self.user_level_log.exception("Already centring")
-        self.current_centring_procedure = "Manual"
-        self.emit("centringStarted", ("Manual"))
-        for step in range(3):
-            if self.current_centring_procedure is None:
-                break
-            self.READY_FOR_NEXT_CLICK.clear()
-            self.READY_FOR_NEXT_CLICK.wait()
-            beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
-            if (self.x is not None) and (self.y is not None):
-                self._bluesky_api.execute_plan(
-                    plan_name="manual_alignment",
-                    kwargs={
-                        "x_px": beam_pos[0] - self.x,
-                        "y_px": self.y - beam_pos[1],
-                        "step": step,
-                    },
-                )
-                self.x = None
-                self.y = None
-        self.user_level_log.info("Manual sample alignment has finished...")
-        self.centring_done()
-        self.accept_centring()
-        gevent.sleep(1)
-        self.emit("centringSuccessful", ("Manual", self.get_centring_status()))
-        self.shapes.clear()
-        self.frontend_application.server.emit(
-            "update_shapes", {"shapes": self.shapes}, namespace="/hwr"
-        )
-        self.frontend_application.server.emit("abort_centring", namespace="/hwr")
-        self.current_centring_procedure = None
-
-    def start_auto_centring(self):
-        self.user_level_log.info("Initializing automatic sample alignment...")
-        if self.current_centring_procedure is not None:
-            self.user_level_log.exception("Already centring")
-        self.current_centring_procedure = "Automatic"
-        self.emit("centringStarted", ("Automatic"))
-        self._bluesky_api.execute_plan(plan_name="automatic_alignment")
-        self.user_level_log.info("Automatic sample alignment has finished...")
-        self.centring_done()
-        self.accept_centring()
-        self.current_centring_procedure = None
-
-    def reject_centring(self):
-        """
-        Because we overwrite start_auto_centring, self.current_centring_procedure
-        is never a spawned gevent. This forces us to overwrite reject_centring
-        form parent class so it doesn't try to run the command
-        self.current_centring_procedure.kill()
-        """
-        self.centring_status["valid"] = False
-        self.emit("centringAccepted", (False, self.get_centring_status()))
-        logging.getLogger("user_level_log").info("Centring cancelled")
-        self.current_centring_procedure = None
-
-    def cancel_centring(self):
-        """
-        Because we overwrite start_auto_centring, self.current_centring_procedure
-        is never a spawned gevent. This forces us to overwrite cancel_centring
-        form parent class so it doesn't try to run the command
-        self.current_centring_procedure.kill()
-        """
-        self.centring_failed()
-        self.current_centring_procedure = None
-
-    def get_snapshot(self):
-        return None
-
-    def _wait_for_centring_finishes(self):
-        return
-
-    def get_centred_point_from_coord(self, x, y, return_by_names=None):
-        d = HWR.beamline.diffractometer
-        omega = d.omega.get_value()
-        phiy = d.phiy.get_value()
-        phiz = d.phiz.get_value()
-        sampx = d.sampx.get_value()
-        sampy = d.sampy.get_value()
-
-        beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
-        x_px = beam_pos[0] - x
-        y_px = y - beam_pos[1]
-
-        zoom_enum = d.zoom.get_value()
-        current_zoom = zoom_enum.name
-        mm_per_pixel_x = d.zoom.get_property("mm_per_pixel_x")[current_zoom]
-        mm_per_pixel_y = d.zoom.get_property("mm_per_pixel_y")[current_zoom]
-
-        sampx = sampx + x_px * mm_per_pixel_x
-        sampy = sampy + y_px * mm_per_pixel_y
-
-        return {
-            "omega": omega,
-            "phiy": phiy,
-            "phiz": phiz,
-            "sampx": sampx,
-            "sampy": sampy,
-        }
