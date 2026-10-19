@@ -26,3 +26,22 @@ class LNLSSession(Session):
         HWR.beamline.session.proposal_number = None
         HWR.beamline.session.proposal_code = None
         HWR.beamline.session.proposal_id = None
+        HWR.beamline.lims.investigations = None
+        HWR.beamline.lims._icat_client_dict = {}
+        HWR.beamline.lims._active_user = None
+        HWR.beamline.lims._icat_session_dict = {}
+
+    def get_default_subdir(self, sample_data: dict) -> str:
+        try:
+            if isinstance(sample_data, dict):
+                address = sample_data.get("location")
+                puck = address.split(":")[0]
+                sample = address.split(":")[1]
+            else:
+                address = sample_data.location
+                puck = address[0]
+                sample = address[1]
+            subdir = HWR.beamline.sample_changer.return_subdir_value(puck, sample)
+        except:
+            subdir = super().get_default_subdir(sample_data)
+        return subdir

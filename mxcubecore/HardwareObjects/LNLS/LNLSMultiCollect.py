@@ -3,8 +3,11 @@ import datetime
 import json
 import logging
 import os
+import time
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+import re
+import gevent
 
 import requests
 from mxcubeweb.core.util.convertutils import to_camel
@@ -57,10 +60,81 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         self.mx_collect_channels = self._CommandContainer__channels
         self.frontend_application = MXCUBEApplication
 
-    def flyscan_procedure(self, owner, data_collect_parameters):
+    def _get_console_output(self, last_msg_uid="ALL"):
+        api = self._bluesky_api.api
+        response = requests.get(
+            api._url + api._console_path,
+            headers=api._headers,
+            json={"last_msg_uid": last_msg_uid},
+            timeout=api._default_timeout,
+        )
+        return api.format_response(response)
+
+    def last_line(self, messages, contains=None):
+        for msg in reversed(messages):
+            lines = [l.strip() for l in re.split(r"[\r\n]+", msg.get("msg", ""))]
+            for line in reversed(lines):
+                if line and (contains is None or contains in line):
+                    return line
+        return None
+
+    def emit_progress(self, total_number_of_images, last_msg_uid="ALL", poll_interval=0.5):
+        while True:
+            try:
+                output = self._get_console_output(last_msg_uid)
+                last_msg_uid = output["last_msg_uid"]
+                line = self.last_line(output["console_output_msgs"], contains="Flyscan: ")
+                if line and "%" in line:
+                    percentage = float(line.split("Flyscan: ")[1].split("%")[0])
+                    images_taken = int(total_number_of_images * percentage / 100)
+                    if images_taken >= total_number_of_images:
+                        images_taken = total_number_of_images - 1
+                    self.emit("collectImageTaken", images_taken)
+            except Exception:
+                logging.getLogger("HWR").debug("emit_progress failed", exc_info=True)
+            gevent.sleep(poll_interval)
+
+    def register_result_at_json_path(self, file_abs_path, point_number, json_path):
+        try:
+            sample_view = HWR.beamline.get_object_by_role("sample_view")
+            omega, phiy, phiz, sampx, sampy = sample_view.get_current_diffractometer_positions()
+            data = {}
+            if os.path.isfile(json_path):
+                try:
+                    with open(json_path, "r") as f:
+                        data = json.load(f)
+                except (json.JSONDecodeError, OSError):
+                    logging.getLogger("HWR").warning(f"Could not read {json_path}, starting a new file")
+                    data = {}
+            data[point_number] = {
+                "file_abs_path": str(file_abs_path),
+                "omega": float(omega),
+                "phiy": float(phiy),
+                "phiz": float(phiz),
+                "sampx": float(sampx),
+                "sampy": float(sampy),
+            }
+            with open(json_path, "w") as f:
+                json.dump(data, f, indent=2)
+            logging.getLogger("HWR").info(f"Registered: {file_abs_path} corresponds to point {point_number}, motor positions saved at {json_path}")
+        except Exception:
+            logging.getLogger("HWR").debug("register_result_at_json_path failed", exc_info=True)
+            return None
+
+    def take_current_point_snapshot(self, point_number, points_snapshots_folder):
+        try:
+            png_file_path = f"{points_snapshots_folder}/point_{point_number}.png"
+            sample_view = HWR.beamline.get_object_by_role("sample_view")
+            sample_view.save_png_with_point_labels(png_file_path, add_beam_center=True)
+        except Exception:
+            logging.getLogger("HWR").debug("take_current_point_snapshot failed", exc_info=True)
+            return None
+
+    def flyscan_procedure(self, owner, data_collect_parameters, is_multi_crystals=False, points_snapshots_folder=None, json_path=None):
         data_collect_parameters["status"] = "Data collection successful"
         file_parameters = data_collect_parameters["fileinfo"]
         file_name = "%(prefix)s_%(run_number)04d" % file_parameters
+
         start = float(
             data_collect_parameters["oscillation_sequence"][0]["start"]
         )  # omega start pos
@@ -71,19 +145,50 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         acquire_time = float(
             data_collect_parameters["oscillation_sequence"][0]["exposure_time"]
         )
-        self._bluesky_api.execute_plan(
-            plan_name="flyscan",
-            kwargs={
-                "start": start,
-                "file_path": file_parameters["directory"],
-                "file_name": file_name,
-                "angle_increment": step_size,
-                "acquire_time": acquire_time,
-                "num_images": num_of_points,
-                "snapshot_num": self.number_of_snapshots,
-                "debug": True,
-            },
-        )
+        plan_params = {
+            "start": start,
+            "file_path": file_parameters["directory"],
+            "file_name": file_name,
+            "angle_increment": step_size,
+            "acquire_time": acquire_time,
+            "num_images": num_of_points,
+            "snapshot_num": self.number_of_snapshots,
+            "debug": True,
+            "run_data_processing": True,
+        }
+
+        if is_multi_crystals:
+            plan_params["reset_omega"] = True
+            plan_params["snapshot_num"] = 0
+            plan_params["post_close_cover"] = False
+            plan_params["start"] = plan_params["start"] - (plan_params["angle_increment"] * plan_params["num_images"])/2
+
+        if is_multi_crystals and points_snapshots_folder:
+            shape_name = data_collect_parameters["position_name"]
+            point_number = shape_name.replace("2D-Point-", "")
+            self.take_current_point_snapshot(point_number, points_snapshots_folder)
+
+        try:
+            start_uid = self._get_console_output()["last_msg_uid"]
+        except Exception:
+            start_uid = "ALL"
+
+        print(f"\nPLAN_PARAMS: {plan_params}\n")
+
+        progress_task = gevent.spawn(self.emit_progress, num_of_points, start_uid)
+        try:
+            self._bluesky_api.execute_plan(
+                plan_name="flyscan",
+                kwargs=plan_params,
+            )
+        finally:
+            progress_task.kill(block=False)
+
+        if is_multi_crystals and json_path:
+            file_abs_path = self.get_master_full_file_name()
+            shape_name = data_collect_parameters["position_name"]
+            point_number = shape_name.replace("2D-Point-", "")
+            self.register_result_at_json_path(file_abs_path, point_number, json_path)
 
     def get_pxpmm(self):
         diffractometer = HWR.beamline.diffractometer
@@ -131,7 +236,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 selected_grid = grid
                 break
             else:
-                print("Ignoring grid {}".format(grid_as_dict["id"]))
+                logging.getLogger("HWR").info("Ignoring grid {}".format(grid_as_dict["id"]))
 
         if selected_grid_dict is None:
             grid_found_msg = "Found unselected grid {}".format(grid_as_dict["name"])
@@ -159,11 +264,11 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             response.raise_for_status()
             payload = response.json()
             data = payload.get('data')
-            print("--- Dozor Output ---")
-            print(data)
+            logging.getLogger("HWR").info("--- Dozor Output ---")
+            logging.getLogger("HWR").info(data)
             return data['data']
         except requests.exceptions.RequestException as e:
-            print(f"Failed to fetch dozor output: {e}")
+            prilogging.getLogger("HWR").infont(f"Failed to fetch dozor output: {e}")
             return None
 
     def return_gridscan_processing_results(self, grid, start_x, start_y, width, height):
@@ -178,29 +283,9 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 if row % 2 == 0:
                     frame = row * num_cols + col + 1
                     flat_index = frame - 1
-                    print(
-                        "row: ",
-                        row,
-                        ", col: ",
-                        col,
-                        ", frame: ",
-                        frame,
-                        "flat_index: ",
-                        flat_index,
-                    )
                 else:
                     frame = (row + 1) * num_cols - col
                     flat_index = frame - 1
-                    print(
-                        "row: ",
-                        row,
-                        ", col: ",
-                        col,
-                        ", frame: ",
-                        frame,
-                        "flat_index: ",
-                        flat_index,
-                    )
                 cell_id = str(row * num_cols + col + 1)
                 score = 0
                 normalized_score = 0
@@ -266,7 +351,6 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         cplist = []
         points = HWR.beamline.sample_view.get_points()
         for point in points:
-            print(dir(point))
             cp = point.get_centred_positions()[0].as_dict()
             cplist.append(cp)
         logging.getLogger("HWR").info(f"\n{cplist}\n")
@@ -327,7 +411,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         file_abs_path = self.get_master_full_file_name()
         try:
             timeout_seconds = 2
-            url = "http://10.31.74.56:5005/open"
+            url = "http://10.39.50.105/web-puck-id/api/open"
             payload = {"path": file_abs_path}
             response = requests.post(url, json=payload, timeout=timeout_seconds)  # noqa: F841
         except requests.exceptions.Timeout:
@@ -348,3 +432,7 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
             self.notify_adxv_server()
         elif experiment_type == "Helical":
             self.helical_scan_procedure(owner, data_collect_parameters)
+
+    def do_collect_multicrystals(self, owner, data_collect_parameters, points_snapshots_folder, json_path):
+        self.flyscan_procedure(owner, data_collect_parameters, is_multi_crystals=True, points_snapshots_folder=points_snapshots_folder, json_path=json_path)
+        self.perform_xlsx_request(data_collect_parameters)
