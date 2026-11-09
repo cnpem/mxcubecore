@@ -1,12 +1,16 @@
 import logging
-
+import numpy as np
 import gevent
+import os
+import glob
+import cv2
+
 from mxcubeweb.app import MXCUBEApplication as frontendApplication
 from mxcubeweb.core.util.convertutils import to_camel
 
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
-from mxcubecore.HardwareObjects.SampleView import Grid, SampleView
+from mxcubecore.HardwareObjects.SampleView import Grid, Point, SampleView, TwoDPoint
 
 
 class LNLSSampleView(SampleView):
@@ -19,6 +23,10 @@ class LNLSSampleView(SampleView):
         self.x, self.y = None, None
         self.frontend_application = frontendApplication
         self.current_centring_method = None
+        self.current_x_point = 540
+        self.current_y_point = 612
+        self.sc_channels = self._CommandContainer__channels
+        self.crystal_detection_url = self.get_property("crystal_detection_url")
 
     def move_to_beam_bluesky(self, x, y, plan_name, step = -1):
         beam_pos = HWR.beamline.beam.get_beam_position_on_screen()
@@ -162,8 +170,24 @@ class LNLSSampleView(SampleView):
 
     def _update_shape_positions(self, *args, **kwargs):
         for shape in self.get_shapes():
-            if not isinstance(shape, Grid):
+            if (not isinstance(shape, Grid)) and (not isinstance(shape, Point)) and (not isinstance(shape, TwoDPoint)):
                 shape.update_position(self.motor_positions_to_screen)
+        self.emit("shapesChanged")
+
+    def return_point_current_position(self, positions_dict: dict[str, float]) -> tuple[int, int]:
+        return int(self.current_x_point), int(self.current_y_point)
+
+    def update_points_from_beamline_action(self, *args, **kwargs):
+        for shape in self.get_shapes():
+            if isinstance(shape, Point):
+                shape_dict = to_camel(shape.as_dict())
+                current_point_position = shape_dict["screenCoord"]
+                x = current_point_position[0]
+                y = current_point_position[1]
+                self.current_x_point = x
+                self.current_y_point = y
+                print("current_point_position: ", current_point_position)
+                shape.update_position(self.return_point_current_position)
         self.emit("shapesChanged")
 
     def update_grid_positions(self, pixel_diff_x, pixel_diff_y):
@@ -174,7 +198,7 @@ class LNLSSampleView(SampleView):
             shape_dict = to_camel(shape.as_dict())
             previous_coord = shape_dict["screenCoord"]
             new_coord = [
-                (previous_coord[0] - pixel_diff_x),
+                previous_coord[0] - pixel_diff_x,
                 previous_coord[1] - pixel_diff_y,
             ]
             shape_dict["screenCoord"] = new_coord
@@ -187,3 +211,111 @@ class LNLSSampleView(SampleView):
             )
             self.emit("shapesChanged")
 
+    def update_point_positions(self, pixel_diff_x, pixel_diff_y):
+        points_list = self.get_points()
+        for point in points_list:
+            shape = self.get_shape(point.id)
+            shape_dict = to_camel(shape.as_dict())
+            previous_coord = shape_dict["screenCoord"]
+            new_coord_tuple = (
+                previous_coord[0] - pixel_diff_x,
+                previous_coord[1] - pixel_diff_y,
+            )
+            shape.screen_coord = (new_coord_tuple)
+        self.emit("shapesChanged")
+
+    def get_raw_image(self):
+        data = self.sc_channels["camera_raw_image"].get_value()
+        data_np_array = np.array(data, dtype='uint8')
+        height = self.camera.height
+        width = self.camera.width
+        shape = [height, width, 3]
+        img = data_np_array.reshape(shape[0], shape[1], shape[2])
+        img[:, :, [2, 0]] = img[:, :, [0, 2]]
+        return img
+
+    def _draw_labeled_marker(self, img, x, y, color, label, marker_size, font_scale, thickness):
+        outline_color = (0, 0, 0)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.drawMarker(img, (x, y), outline_color, cv2.MARKER_CROSS,
+                    marker_size, thickness + 2)
+        cv2.drawMarker(img, (x, y), color, cv2.MARKER_CROSS,
+                    marker_size, thickness)
+        text_pos = (x + marker_size // 2 + 4, y - marker_size // 2)
+        cv2.putText(img, label, text_pos, font, font_scale, outline_color,
+                    thickness + 2, cv2.LINE_AA)
+        cv2.putText(img, label, text_pos, font, font_scale, color,
+                    thickness, cv2.LINE_AA)
+
+    def save_png_with_point_labels(self, png_file_path, add_beam_center=False):
+        raw_img = self.get_raw_image()
+        img = raw_img.copy(order="C")
+        h, w = img.shape[:2]
+        point_color = (0, 255, 0)
+        beam_color = (0, 0, 255)
+        marker_size = max(12, w // 60)
+        font_scale = max(0.5, w / 1600)
+        thickness = max(1, w // 800)
+
+        for point in self.get_points():
+            shape = self.get_shape(point.id)
+            shape_dict = to_camel(shape.as_dict())
+            x, y = shape_dict["screenCoord"][:2]
+            x, y = int(round(x)), int(round(y))
+            point_number = int(shape_dict["id"].replace("2DP", ""))
+            if not (0 <= x < w and 0 <= y < h):
+                logging.getLogger("HWR").warning(
+                    f"Point {point_number} at ({x}, {y}) is outside the image ({w}x{h})"
+                )
+                continue
+            self._draw_labeled_marker(img, x, y, point_color, str(point_number),
+                                    marker_size, font_scale, thickness)
+
+        if add_beam_center:
+            x, y = HWR.beamline.beam.get_beam_position_on_screen()
+            self._draw_labeled_marker(img, x, y, beam_color, "beam", marker_size, font_scale, thickness)
+
+        if not cv2.imwrite(png_file_path, img):
+            raise IOError(f"Failed to write {png_file_path}")
+
+    def save_points_and_snapshot_to_png(self):
+        try:
+            mxcollect = HWR.beamline.get_object_by_role('collect')
+            session = HWR.beamline.get_object_by_role('session')
+            sample_changer = HWR.beamline.get_object_by_role('sample_changer')
+
+            base_image_directory = session.get_base_image_directory()
+            multi_points_collections_dir = f"{base_image_directory}/multi_points_collections".replace("/data/", "/proc/")
+            os.makedirs(multi_points_collections_dir, exist_ok=True)
+
+            current_sample = sample_changer.frontend_application.lims.get_current_sample()
+
+            if current_sample == {}:
+                return None, None
+
+            if current_sample['location'] == 'Manual':
+                protein_acronym = current_sample['proteinAcronym']
+                sample_name = current_sample['sampleName']
+                sample_name = f'{protein_acronym}-{sample_name}'
+            else:
+                loaded_sample = sample_changer.get_loaded_sample()
+                sample_name = loaded_sample.get_name()
+
+            png_file_path_placeholder = f"{multi_points_collections_dir}/{sample_name}_run*"
+            next_run_number = len(glob.glob(png_file_path_placeholder))
+            run_folder = f"{multi_points_collections_dir}/{sample_name}_run{next_run_number}"
+            os.makedirs(run_folder)
+
+            points_snapshots_folder = f"{run_folder}/points_snapshots"
+            os.makedirs(points_snapshots_folder)
+
+            png_file_path = f"{run_folder}/{sample_name}.png"
+            self.save_png_with_point_labels(png_file_path)
+
+            json_path = f"{run_folder}/{sample_name}.json"
+
+            return json_path, points_snapshots_folder
+
+        except Exception:
+            logging.getLogger("HWR").debug("save_points_and_snapshot_to_png failed", exc_info=True)
+            return None, None
