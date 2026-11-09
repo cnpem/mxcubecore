@@ -11,7 +11,7 @@ from mxcubeweb.core.util.convertutils import to_camel
 from mxcubecore import HardwareRepository as HWR
 from mxcubecore.HardwareObjects.abstract.AbstractSampleChanger import SampleChangerState
 from mxcubecore.HardwareObjects.SampleView import Grid, Point, SampleView, TwoDPoint
-
+from mxcubecore.model.queue_model_enumerables import CENTRING_METHOD
 
 class LNLSSampleView(SampleView):
     def init(self):
@@ -79,7 +79,13 @@ class LNLSSampleView(SampleView):
             self.user_level_log.info("Already centring")
             return
         self.start_centring("Automatic")
-        self._bluesky_api.execute_plan(plan_name="automatic_alignment")
+        plan_kwargs ={
+            "use_yolo": HWR.beamline.queue_manager.centring_method == CENTRING_METHOD.FULLY_AUTOMATIC
+        }
+        self._bluesky_api.execute_plan(
+            plan_name="automatic_alignment",
+            kwargs=plan_kwargs
+        )
         self.user_level_log.info("Automatic sample alignment has finished...")
         self.finish_centring()
 
