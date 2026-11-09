@@ -310,6 +310,8 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
                 "additionalData": additionalData,
             }
             response = requests.post(url, json=payload, timeout=timeout_seconds)
+            if response.status_code == 200:
+                logging.getLogger("HWR").info("Successfully written new line at proposal spreadsheet")
             logging.getLogger("HWR").info(str(response.status_code))
             logging.getLogger("HWR").info(str(response.text))
             logging.getLogger("HWR").info(str(response.json()))
