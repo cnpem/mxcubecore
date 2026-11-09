@@ -8,7 +8,7 @@ from mxcubecore.HardwareObjects.Session import Session
 class LNLSSession(Session):
     def get_proposal(self):
         proposal = super().get_proposal()
-        return proposal.replace("sc", "").replace("rap", "").replace("industrial", "")
+        return proposal.replace("sc", "").replace("rap", "").replace("industrial", "").replace("tc", "")
 
     def get_base_image_directory(self):
         start_time = time.strftime("%Y%m%d")
