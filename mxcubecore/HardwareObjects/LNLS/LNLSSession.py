@@ -22,14 +22,20 @@ class LNLSSession(Session):
         return directory
 
     def clear_session(self):
-        HWR.beamline.session.session_id = None
-        HWR.beamline.session.proposal_number = None
-        HWR.beamline.session.proposal_code = None
-        HWR.beamline.session.proposal_id = None
-        HWR.beamline.lims.investigations = None
-        HWR.beamline.lims._icat_client_dict = {}
-        HWR.beamline.lims._active_user = None
-        HWR.beamline.lims._icat_session_dict = {}
+        self.session_id = None
+        self.proposal_number = None
+        self.proposal_code = None
+        self.proposal_id = None
+        lims = HWR.beamline.lims
+        operator = lims._active_user
+        lims.session_manager.active_session = None
+        lims.investigations = []
+        with lims._active_user_lock:
+            lims._active_user = None
+        if operator is not None:
+            lims.remove_user(operator)
+        if lims._last_login_user == operator:
+            lims._last_login_user = None
 
     def get_default_subdir(self, sample_data: dict) -> str:
         try:
