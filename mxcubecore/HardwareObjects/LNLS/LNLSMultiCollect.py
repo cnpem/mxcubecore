@@ -210,52 +210,6 @@ class LNLSMultiCollect(AbstractMultiCollect, HardwareObject):
         shape_dict["cellCountFun"] = "left-to-right"
         HWR.beamline.sample_view.emit("newGridResult", shape_dict)
 
-        ############## GAMBIARRA FOR SAVING GRID AND MOTOR RESULTS ##############
-
-        d = HWR.beamline.diffractometer
-        omega = d.omega.get_value()
-        motor_positions_list = []
-        print("step_size: ", step_size)
-        print("start_x: ", start_x)
-        print("start_y: ", start_y)
-        print("width: ", width)
-        print("height: ", height)
-        print("num_rows: ", num_rows)
-        print("num_cols: ", num_cols)
-        for row in range(num_rows):
-            for col in range(num_cols):
-                if row % 2 == 0:
-                    frame = row * num_cols + col + 1
-                    flat_index = frame - 1
-                else:
-                    frame = (row + 1) * num_cols - col
-                    flat_index = frame - 1
-                cell_id = str(row * num_cols + col + 1)
-                score = grid_result_x_ray_scanning["heatmap"][cell_id][0]
-                normalized_value = grid_result_x_ray_scanning["heatmap"][cell_id][1]
-                motor_position_x = start_x - (col + 0.5) * step_size
-                motor_position_y = start_y + (row + 0.5) * step_size
-                centred_pos_dir = {
-                    "omega": omega,
-                    "phiz": motor_position_x,
-                    "sampy": motor_position_y,
-                    "value": score,
-                    "normalized_value": normalized_value,
-                }
-                motor_positions_list.append(centred_pos_dir)
-        tstp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        saved_files = os.listdir("/ibira/lnls/beamlines/manaca/apps/x-ray-scanning")
-        saved_files = [item for item in saved_files if ".swp" not in item]
-        next_id = len(saved_files) + 1
-        next_id = "{:04d}".format(next_id)
-        with open(
-            f"/ibira/lnls/beamlines/manaca/apps/x-ray-scanning/{next_id}_{tstp}.json",
-            "w",
-        ) as json_file:
-            json.dump(motor_positions_list, json_file, indent=4)
-
-        ############## END OF GAMBIARRA ##############
-
     def gridscan_procedure(self, owner, data_collect_parameters):
         start_x, start_y, width, height, steps_x, steps_y, selected_grid = (
             self.get_grid_scan_data()
